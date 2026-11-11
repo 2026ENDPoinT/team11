@@ -7,7 +7,7 @@ import com.team11.backend.timetable.config.SemesterProperties;
 import com.team11.backend.timetable.config.SemesterProperties.SemesterConfig;
 import com.team11.backend.timetable.domain.DayOfWeek;
 import com.team11.backend.timetable.domain.TimetableEntry;
-import com.team11.backend.timetable.domain.TimetableSource;
+import com.team11.backend.common.domain.Source;
 import com.team11.backend.timetable.dto.BulkReplaceTimetableRequest;
 import com.team11.backend.timetable.dto.CreateTimetableEntryRequest;
 import com.team11.backend.timetable.dto.SemesterListResponse;
@@ -73,7 +73,7 @@ public class TimetableService {
 
         TimetableEntry entry = new TimetableEntry(userId, request.semester(), request.dayOfWeek(),
                 request.startTime(), request.endTime(), request.courseName(), request.location(),
-                TimetableSource.MANUAL, null);
+                Source.MANUAL, null);
         timetableEntryRepository.save(entry);
         return TimetableEntryView.from(entry);
     }
@@ -81,7 +81,7 @@ public class TimetableService {
     public TimetableEntryView updateEntry(Long userId, Long entryId, UpdateTimetableEntryRequest request) {
         TimetableEntry entry = findOwnedEntry(userId, entryId);
 
-        if (entry.getSource() != TimetableSource.MANUAL && request.changesReadonlyFields()) {
+        if (entry.getSource() != Source.MANUAL && request.changesReadonlyFields()) {
             throw new ApiException(ErrorCode.TIMETABLE_READONLY_FIELD);
         }
 
@@ -105,7 +105,7 @@ public class TimetableService {
 
     public TimetableResponse bulkReplace(Long userId, String semester, BulkReplaceTimetableRequest request) {
         validateSemesterFormat(semester);
-        if (request.source() == TimetableSource.ECLASS) {
+        if (request.source() == Source.ECLASS) {
             for (BulkReplaceTimetableRequest.Entry item : request.entries()) {
                 if (item.externalId() == null || item.externalId().isBlank()) {
                     throw new ApiException(ErrorCode.VALIDATION_FAILED,

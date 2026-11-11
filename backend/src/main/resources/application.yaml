@@ -9,6 +9,10 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul # TIMESTAMPTZ를 항상 +09:00로 읽고 쓰기 위한 변환 규칙, CLAUDE.md §4 참고
   flyway:
     enabled: true
 

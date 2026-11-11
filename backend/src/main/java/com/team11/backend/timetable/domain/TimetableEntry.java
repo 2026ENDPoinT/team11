@@ -1,5 +1,6 @@
 package com.team11.backend.timetable.domain;
 
+import com.team11.backend.common.domain.Source;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -36,7 +37,7 @@ public class TimetableEntry {
     private String location;
 
     @Enumerated(EnumType.STRING)
-    private TimetableSource source;
+    private Source source;
 
     private String externalId;
 
@@ -47,7 +48,7 @@ public class TimetableEntry {
     private Instant updatedAt;
 
     public TimetableEntry(Long userId, String semester, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime,
-                           String courseName, String location, TimetableSource source, String externalId) {
+                           String courseName, String location, Source source, String externalId) {
         this.userId = userId;
         this.semester = semester;
         this.dayOfWeek = dayOfWeek;

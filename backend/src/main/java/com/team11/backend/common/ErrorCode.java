@@ -25,6 +25,9 @@ public enum ErrorCode {
     TIMETABLE_OVERLAP(HttpStatus.CONFLICT, "같은 시간에 이미 등록된 수업이 있어요."),
     TIME_RANGE_INVALID(HttpStatus.BAD_REQUEST, "시작/종료 시각이 올바르지 않아요."),
     TIMETABLE_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 수업은 이 필드를 수정할 수 없어요."),
+    DATE_RANGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 기간이 너무 길어요."),
+    EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "일정이 없어요."),
+    EVENT_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 일정은 이 필드를 수정할 수 없어요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했어요.");
 
     private final HttpStatus httpStatus;
