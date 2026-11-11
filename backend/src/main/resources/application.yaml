@@ -21,6 +21,12 @@ jwt:
   access-token-expiry-seconds: 1800
   refresh-token-expiry-days: 14
 
+# AI 서버 호스팅 위치 미정(CLAUDE.md §10) — base-url 비우면 AiClient가 호출 자체를 생략하고 규칙 폴백한다.
+ai:
+  base-url: ${AI_BASE_URL:}
+  internal-key: ${AI_INTERNAL_KEY:}
+  timeout-seconds: 4
+
 # TODO: 플레이스홀더 날짜. 서울과학기술대 실제 학사일정으로 교체 필요(코드 변경 없이 이 값만 고치면 됨).
 app:
   semesters:

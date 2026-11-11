@@ -10,7 +10,8 @@
 --                   Users (notification_settings) — V2
 --                   Timetable (timetable_entries) — V3
 --                   Events (events) — V4
--- 나머지 도메인(Devices, Exam, Plans, Logs, Stats, Home, Tips, Sync)은
+--                   Plans (plans) — V5
+-- 나머지 도메인(Devices, Exam, Logs, Stats, Home, Tips, Sync)은
 -- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
 
 -- =====================================================================
@@ -130,6 +131,35 @@ CREATE TABLE events (
     CONSTRAINT ck_events_time_range CHECK (end_at IS NULL OR start_at < end_at)
 );
 
+-- V5__plans.sql (slots는 PLAN-05 생길 때 추가) ---------------------------
+
+CREATE TABLE plans (
+    id                       BIGSERIAL PRIMARY KEY,
+    user_id                  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_date              DATE        NOT NULL,
+    mode                     VARCHAR(10) NOT NULL,
+    status                   VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    recommended_bed_at       TIMESTAMPTZ NOT NULL,
+    recommended_wake_at      TIMESTAMPTZ NOT NULL,
+    user_bed_at              TIMESTAMPTZ,
+    sleep_min                INT         NOT NULL,
+    breakdown_commute_min    INT,
+    breakdown_prep_min       INT,
+    breakdown_buffer_min     INT,
+    breakdown_sleep_need_min INT,
+    breakdown_sleep_latency_min INT,
+    first_event_kind         VARCHAR(10),
+    first_event_title        VARCHAR(100),
+    first_event_start_at     TIMESTAMPTZ,
+    reasons                  TEXT[]      NOT NULL DEFAULT '{}',
+    warnings                 TEXT[]      NOT NULL DEFAULT '{}',
+    generated_by             VARCHAR(10) NOT NULL,
+    model_version            VARCHAR(50),
+    generated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- =====================================================================
 -- Part 2. 인덱스
 -- =====================================================================
@@ -137,3 +167,4 @@ CREATE TABLE events (
 CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
 CREATE INDEX ix_events_user_start ON events(user_id, start_at);
+CREATE UNIQUE INDEX uq_plans_active_per_date ON plans(user_id, target_date) WHERE status = 'ACTIVE';
