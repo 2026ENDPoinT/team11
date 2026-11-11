@@ -43,4 +43,9 @@ public class Consent {
     void assignTo(User user) {
         this.user = user;
     }
+
+    public void updateAgreement(boolean agreed) {
+        this.agreed = agreed;
+        this.agreedAt = agreed ? Instant.now() : null;
+    }
 }
