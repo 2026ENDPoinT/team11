@@ -12,10 +12,11 @@
 --                   Events (events) — V4
 --                   Plans (plans) — V5
 --                   Logs (sleep_logs, prep_logs) — V6
+--                   Devices / Notifications (devices, notifications) — V7
 -- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
 -- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
--- 나머지 도메인(Devices, Exam, Stats, Tips, Sync)은
--- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
+-- 나머지 도메인(Exam, Stats, Tips, Sync)은 전부 2차(CLAUDE.md §10),
+-- Calendar(월간/하루 요약)는 MVP인데 누락된 상태로 다음 작업 예정.
 
 -- =====================================================================
 -- Part 1. 테이블
@@ -194,6 +195,32 @@ CREATE TABLE prep_logs (
     CONSTRAINT ck_prep_logs_time_range CHECK (departure_at > wake_at)
 );
 
+-- V7__devices_notifications.sql --------------------------------------------
+
+CREATE TABLE devices (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    platform       VARCHAR(10)  NOT NULL,
+    push_token     VARCHAR(255) NOT NULL,
+    app_version    VARCHAR(20),
+    timezone       VARCHAR(50)  NOT NULL DEFAULT 'Asia/Seoul',
+    active         BOOLEAN      NOT NULL DEFAULT TRUE,
+    last_active_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_devices_push_token UNIQUE (push_token)
+);
+
+CREATE TABLE notifications (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type       VARCHAR(20) NOT NULL,
+    title      VARCHAR(100) NOT NULL,
+    body       VARCHAR(500) NOT NULL,
+    data       TEXT,
+    read_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- =====================================================================
 -- Part 2. 인덱스
 -- =====================================================================
@@ -201,5 +228,7 @@ CREATE TABLE prep_logs (
 CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
 CREATE INDEX ix_events_user_start ON events(user_id, start_at);
+CREATE INDEX ix_devices_user_active ON devices(user_id, active);
+CREATE INDEX ix_notifications_user_id_desc ON notifications(user_id, id DESC);
 CREATE UNIQUE INDEX uq_plans_active_per_date ON plans(user_id, target_date) WHERE status = 'ACTIVE';
 CREATE INDEX ix_sleep_logs_user_date ON sleep_logs(user_id, date);

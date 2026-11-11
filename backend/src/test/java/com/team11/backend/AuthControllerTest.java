@@ -98,6 +98,45 @@ class AuthControllerTest {
     }
 
     @Test
+    void logout_withDeviceId_deactivatesOwnedDevice() throws Exception {
+        String loginId = "logoutdevice1";
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SIGNUP_BODY.formatted(loginId)))
+                .andExpect(status().isCreated());
+
+        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "%s", "password": "P@ssw0rd1" }
+                                """.formatted(loginId)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.accessToken");
+        String refreshToken = com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.refreshToken");
+
+        String deviceResponse = mockMvc.perform(post("/api/v1/devices").header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "platform": "IOS", "pushToken": "ExponentPushToken[logoutdevice1]" }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Integer deviceId = com.jayway.jsonpath.JsonPath.read(deviceResponse, "$.data.deviceId");
+
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "refreshToken": "%s", "deviceId": %d }
+                                """.formatted(refreshToken, deviceId)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.devices", org.hamcrest.Matchers.hasSize(0)));
+    }
+
+    @Test
     void login_withWrongPassword_returnsInvalidCredentials() throws Exception {
         String loginId = "wrongpw1";
         mockMvc.perform(post("/api/v1/auth/signup")

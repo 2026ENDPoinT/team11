@@ -22,6 +22,7 @@ import com.team11.backend.common.ErrorCode;
 import com.team11.backend.common.FieldViolation;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.config.JwtTokenProvider;
+import com.team11.backend.devices.service.DeviceService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -50,15 +51,17 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final DeviceService deviceService;
 
     public AuthService(UserRepository userRepository, CharacterRepository characterRepository,
                         RefreshTokenRepository refreshTokenRepository, PasswordEncoder passwordEncoder,
-                        JwtTokenProvider jwtTokenProvider) {
+                        JwtTokenProvider jwtTokenProvider, DeviceService deviceService) {
         this.userRepository = userRepository;
         this.characterRepository = characterRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.deviceService = deviceService;
     }
 
     public SignupResponse signup(SignupRequest request) {
@@ -123,12 +126,15 @@ public class AuthService {
     }
 
     public void logout(Long userId, LogoutRequest request) {
-        // ponytail: deviceId 비활성화는 Devices 도메인(기기 push 토큰) 구현 후 연결, 현재는 refreshToken 무효화만 수행.
         String hash = hash(request.refreshToken());
         refreshTokenRepository.findByTokenHash(hash)
                 .filter(token -> token.getUserId().equals(userId))
                 .filter(token -> !token.isRevoked())
                 .ifPresent(token -> token.revoke(Instant.now()));
+
+        if (request.deviceId() != null) {
+            deviceService.deactivateIfOwned(userId, request.deviceId());
+        }
     }
 
     @Transactional(readOnly = true)
