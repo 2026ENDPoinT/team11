@@ -10,6 +10,11 @@ jwt:
   access-token-expiry-seconds: 1800
   refresh-token-expiry-days: 14
 
+ai:
+  base-url: ""
+  internal-key: ""
+  timeout-seconds: 1
+
 app:
   semesters:
     - code: 2026-2
