@@ -213,9 +213,7 @@ public class PlanService {
     }
 
     private void requireHealthDataConsent(User user) {
-        boolean agreed = user.getConsents().stream()
-                .anyMatch(c -> c.getType() == ConsentType.HEALTH_DATA && c.isAgreed());
-        if (!agreed) {
+        if (!user.hasAgreedTo(ConsentType.HEALTH_DATA)) {
             throw new ApiException(ErrorCode.CONSENT_REQUIRED);
         }
     }

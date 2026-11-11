@@ -11,7 +11,8 @@
 --                   Timetable (timetable_entries) — V3
 --                   Events (events) — V4
 --                   Plans (plans) — V5
--- 나머지 도메인(Devices, Exam, Logs, Stats, Home, Tips, Sync)은
+--                   Logs (sleep_logs, prep_logs) — V6
+-- 나머지 도메인(Devices, Exam, Stats, Home, Tips, Sync)은
 -- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
 
 -- =====================================================================
@@ -160,6 +161,37 @@ CREATE TABLE plans (
     updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- V6__logs.sql ------------------------------------------------------------
+
+CREATE TABLE sleep_logs (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date         DATE,
+    bed_at       TIMESTAMPTZ NOT NULL,
+    wake_at      TIMESTAMPTZ,
+    duration_min INT,
+    quality      INT,
+    status       VARCHAR(10) NOT NULL,
+    source       VARCHAR(10) NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_sleep_logs_time_range CHECK (wake_at IS NULL OR wake_at > bed_at),
+    CONSTRAINT ck_sleep_logs_quality CHECK (quality IS NULL OR quality BETWEEN 1 AND 5)
+);
+
+CREATE TABLE prep_logs (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date          DATE        NOT NULL,
+    wake_at       TIMESTAMPTZ NOT NULL,
+    departure_at  TIMESTAMPTZ NOT NULL,
+    prep_min      INT         NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_prep_logs_user_date UNIQUE (user_id, date),
+    CONSTRAINT ck_prep_logs_time_range CHECK (departure_at > wake_at)
+);
+
 -- =====================================================================
 -- Part 2. 인덱스
 -- =====================================================================
@@ -168,3 +200,4 @@ CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
 CREATE INDEX ix_events_user_start ON events(user_id, start_at);
 CREATE UNIQUE INDEX uq_plans_active_per_date ON plans(user_id, target_date) WHERE status = 'ACTIVE';
+CREATE INDEX ix_sleep_logs_user_date ON sleep_logs(user_id, date);
