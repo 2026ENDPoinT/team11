@@ -1,3 +1,10 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+
 jwt:
   secret: test-only-secret-key-please-change-0123456789
   access-token-expiry-seconds: 1800

@@ -9,7 +9,8 @@
 -- 현재 반영된 도메인: Auth (users, characters, consents, refresh_tokens) — V1
 --                   Users (notification_settings) — V2
 --                   Timetable (timetable_entries) — V3
--- 나머지 도메인(Devices, Events, Exam, Plans, Logs, Stats, Home, Tips, Sync)은
+--                   Events (events) — V4
+-- 나머지 도메인(Devices, Exam, Plans, Logs, Stats, Home, Tips, Sync)은
 -- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
 
 -- =====================================================================
@@ -110,9 +111,29 @@ CREATE TABLE timetable_entries (
     CONSTRAINT ck_timetable_entries_time_range CHECK (start_time < end_time)
 );
 
+-- V4__events.sql --------------------------------------------------------
+
+CREATE TABLE events (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type        VARCHAR(20)  NOT NULL,
+    title       VARCHAR(50)  NOT NULL,
+    start_at    TIMESTAMPTZ  NOT NULL,
+    end_at      TIMESTAMPTZ,
+    all_day     BOOLEAN      NOT NULL DEFAULT FALSE,
+    tag         VARCHAR(20),
+    note        VARCHAR(200),
+    source      VARCHAR(10)  NOT NULL DEFAULT 'MANUAL',
+    external_id VARCHAR(100),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT ck_events_time_range CHECK (end_at IS NULL OR start_at < end_at)
+);
+
 -- =====================================================================
 -- Part 2. 인덱스
 -- =====================================================================
 
 CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
+CREATE INDEX ix_events_user_start ON events(user_id, start_at);

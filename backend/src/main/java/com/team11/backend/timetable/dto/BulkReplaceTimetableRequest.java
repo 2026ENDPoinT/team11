@@ -1,7 +1,7 @@
 package com.team11.backend.timetable.dto;
 
 import com.team11.backend.timetable.domain.DayOfWeek;
-import com.team11.backend.timetable.domain.TimetableSource;
+import com.team11.backend.common.domain.Source;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,7 +10,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 public record BulkReplaceTimetableRequest(
-        @NotNull TimetableSource source,
+        @NotNull Source source,
 
         @NotNull @Size(max = 100, message = "한 번에 최대 100개까지예요.")
         List<@Valid Entry> entries
