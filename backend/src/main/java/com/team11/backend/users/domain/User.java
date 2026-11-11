@@ -94,6 +94,10 @@ public class User {
         consent.assignTo(this);
     }
 
+    public boolean hasAgreedTo(ConsentType type) {
+        return consents.stream().anyMatch(c -> c.getType() == type && c.isAgreed());
+    }
+
     /** PATCH /users/me — 보낸 필드만 수정(null은 미변경). */
     public void updateSettings(String nickname, Chronotype chronotype, Integer sleepNeedMin, Integer sleepLatencyMin,
                                 Integer commuteMin, Integer prepMin, Integer bufferMin, Integer minSleepMin) {

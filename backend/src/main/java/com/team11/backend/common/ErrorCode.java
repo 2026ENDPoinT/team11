@@ -30,6 +30,10 @@ public enum ErrorCode {
     EVENT_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 일정은 이 필드를 수정할 수 없어요."),
     PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 플랜이 없어요."),
     AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지금은 플랜을 만들 수 없어요. 잠시 후 다시 시도해 주세요."),
+    SLEEP_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "수면 기록이 없어요."),
+    SLEEP_LOG_ALREADY_OPEN(HttpStatus.CONFLICT, "이미 취침 중인 기록이 있어요."),
+    SLEEP_LOG_NOT_OPEN(HttpStatus.CONFLICT, "종료할 취침 기록이 없어요. 직접 입력해 주세요."),
+    SLEEP_LOG_OVERLAP(HttpStatus.CONFLICT, "다른 수면 기록과 시간이 겹쳐요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했어요.");
 
     private final HttpStatus httpStatus;
