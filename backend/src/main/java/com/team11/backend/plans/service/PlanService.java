@@ -18,7 +18,6 @@ import com.team11.backend.plans.domain.PlanStatus;
 import com.team11.backend.plans.dto.PlanView;
 import com.team11.backend.plans.repository.PlanRepository;
 import com.team11.backend.timetable.config.SemesterProperties;
-import com.team11.backend.timetable.config.SemesterProperties.SemesterConfig;
 import com.team11.backend.timetable.domain.DayOfWeek;
 import com.team11.backend.timetable.domain.TimetableEntry;
 import com.team11.backend.timetable.dto.TimetableEntryView;
@@ -223,13 +222,6 @@ public class PlanService {
     }
 
     private String resolveCurrentSemesterCode(LocalDate date) {
-        return semesterProperties.semesters().stream()
-                .filter(c -> !date.isBefore(c.startDate()) && !date.isAfter(c.endDate()))
-                .findFirst()
-                .or(() -> semesterProperties.semesters().stream()
-                        .filter(c -> c.startDate().isAfter(date))
-                        .min(Comparator.comparing(SemesterConfig::startDate)))
-                .map(SemesterConfig::code)
-                .orElse(null);
+        return semesterProperties.resolveCodeFor(date);
     }
 }

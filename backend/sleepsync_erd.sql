@@ -12,7 +12,9 @@
 --                   Events (events) — V4
 --                   Plans (plans) — V5
 --                   Logs (sleep_logs, prep_logs) — V6
--- 나머지 도메인(Devices, Exam, Stats, Home, Tips, Sync)은
+-- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
+-- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
+-- 나머지 도메인(Devices, Exam, Stats, Tips, Sync)은
 -- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
 
 -- =====================================================================
