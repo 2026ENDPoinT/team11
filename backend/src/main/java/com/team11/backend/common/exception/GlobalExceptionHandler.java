@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
                         r.getMethodParameter().getParameterName(),
                         r.getResolvableErrors().getFirst().getDefaultMessage()))
                 .toList();
+        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
+                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, violations)));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException e) {
+        List<FieldViolation> violations = List.of(new FieldViolation(e.getParameterName(), "필수 값이에요."));
         return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
                 .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, violations)));
     }
