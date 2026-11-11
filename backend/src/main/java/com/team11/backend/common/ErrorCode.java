@@ -20,6 +20,11 @@ public enum ErrorCode {
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임이에요."),
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않거나 선택할 수 없는 캐릭터예요."),
     CONSENT_NOT_REVOCABLE(HttpStatus.BAD_REQUEST, "철회할 수 없는 필수 동의예요."),
+    SEMESTER_NOT_FOUND(HttpStatus.NOT_FOUND, "지원하지 않는 학기예요."),
+    TIMETABLE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "수업 항목이 없어요."),
+    TIMETABLE_OVERLAP(HttpStatus.CONFLICT, "같은 시간에 이미 등록된 수업이 있어요."),
+    TIME_RANGE_INVALID(HttpStatus.BAD_REQUEST, "시작/종료 시각이 올바르지 않아요."),
+    TIMETABLE_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 수업은 이 필드를 수정할 수 없어요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했어요.");
 
     private final HttpStatus httpStatus;
