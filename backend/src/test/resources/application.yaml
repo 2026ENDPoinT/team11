@@ -1,0 +1,4 @@
+jwt:
+  secret: test-only-secret-key-please-change-0123456789
+  access-token-expiry-seconds: 1800
+  refresh-token-expiry-days: 14
