@@ -93,4 +93,30 @@ public class User {
         consents.add(consent);
         consent.assignTo(this);
     }
+
+    /** PATCH /users/me — 보낸 필드만 수정(null은 미변경). */
+    public void updateSettings(String nickname, Chronotype chronotype, Integer sleepNeedMin, Integer sleepLatencyMin,
+                                Integer commuteMin, Integer prepMin, Integer bufferMin, Integer minSleepMin) {
+        if (nickname != null) this.nickname = nickname;
+        if (chronotype != null) this.chronotype = chronotype;
+        if (sleepNeedMin != null) this.sleepNeedMin = sleepNeedMin;
+        if (sleepLatencyMin != null) this.sleepLatencyMin = sleepLatencyMin;
+        if (commuteMin != null) this.commuteMin = commuteMin;
+        if (prepMin != null) this.prepMin = prepMin;
+        if (bufferMin != null) this.bufferMin = bufferMin;
+        if (minSleepMin != null) this.minSleepMin = minSleepMin;
+    }
+
+    public void applyOnboarding(Chronotype chronotype, int sleepNeedMin, int sleepLatencyMin, int commuteMin, int prepMin) {
+        this.chronotype = chronotype;
+        this.sleepNeedMin = sleepNeedMin;
+        this.sleepLatencyMin = sleepLatencyMin;
+        this.commuteMin = commuteMin;
+        this.prepMin = prepMin;
+        this.onboardingDone = true;
+    }
+
+    public void selectCharacter(Character character) {
+        this.character = character;
+    }
 }

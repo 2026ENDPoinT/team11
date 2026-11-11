@@ -7,6 +7,7 @@
 --
 -- 구성: Part 1 = 테이블, Part 2 = 인덱스
 -- 현재 반영된 도메인: Auth (users, characters, consents, refresh_tokens) — V1
+--                   Users (notification_settings) — V2
 -- 나머지 도메인(Devices, Timetable, Events, Exam, Plans, Logs, Stats, Home, Tips, Sync)은
 -- 구현 순서(CLAUDE.md 3번: Auth → Users → Timetable ...)에 맞춰 이어서 추가된다.
 
@@ -72,6 +73,22 @@ CREATE TABLE refresh_tokens (
     replaced_by  BIGINT REFERENCES refresh_tokens(id),
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT uq_refresh_tokens_token_hash UNIQUE (token_hash)
+);
+
+-- V2__notification_settings.sql ----------------------------------------
+
+CREATE TABLE notification_settings (
+    user_id                 BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    enabled                 BOOLEAN NOT NULL DEFAULT TRUE,
+    wind_down_min_before    INT     NOT NULL DEFAULT 60,
+    bed_reminder_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+    caffeine_cutoff_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    nap_reminder_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+    streak_risk_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    weekly_report_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+    quiet_hours_start       TIME,
+    quiet_hours_end         TIME,
+    CONSTRAINT ck_notification_settings_wind_down_min_before CHECK (wind_down_min_before BETWEEN 0 AND 180)
 );
 
 -- =====================================================================

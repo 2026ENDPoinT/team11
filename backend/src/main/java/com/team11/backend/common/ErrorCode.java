@@ -17,6 +17,9 @@ public enum ErrorCode {
     USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디예요."),
     USER_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않아요."),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "잠시 후 다시 시도해 주세요."),
+    NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임이에요."),
+    CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않거나 선택할 수 없는 캐릭터예요."),
+    CONSENT_NOT_REVOCABLE(HttpStatus.BAD_REQUEST, "철회할 수 없는 필수 동의예요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했어요.");
 
     private final HttpStatus httpStatus;
