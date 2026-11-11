@@ -1,6 +1,7 @@
 package com.team11.backend.logs.service;
 
 import com.team11.backend.common.ErrorCode;
+import com.team11.backend.common.TimeOfDayMath;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.logs.domain.SleepLog;
 import com.team11.backend.logs.domain.SleepLogSource;
@@ -22,7 +23,6 @@ import com.team11.backend.users.domain.User;
 import com.team11.backend.users.repository.UserRepository;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -180,13 +180,8 @@ public class SleepLogService {
         if (present.isEmpty()) {
             return null;
         }
-        double total = 0;
-        for (OffsetDateTime t : present) {
-            LocalTime lt = t.toLocalTime();
-            int minuteOfDay = lt.getHour() * 60 + lt.getMinute();
-            total += minuteOfDay < 12 * 60 ? minuteOfDay + 1440 : minuteOfDay;
-        }
-        int avgMin = (int) Math.round(total / present.size()) % 1440;
+        double total = present.stream().mapToInt(TimeOfDayMath::continuousMinuteOfDay).average().orElse(0);
+        int avgMin = (int) Math.round(total) % 1440;
         return "%02d:%02d".formatted(avgMin / 60, avgMin % 60);
     }
 

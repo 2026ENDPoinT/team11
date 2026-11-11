@@ -1,4 +1,7 @@
 spring:
+  datasource:
+    hikari:
+      connection-init-sql: "SET TIME ZONE 'Asia/Seoul'"
   jpa:
     properties:
       hibernate:

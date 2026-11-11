@@ -1,6 +1,7 @@
 package com.team11.backend.home.service;
 
 import com.team11.backend.common.ErrorCode;
+import com.team11.backend.common.TimeOfDayMath;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.home.dto.DailyResultsResponse;
 import com.team11.backend.home.dto.DailyResultsResponse.DailyResultView;
@@ -41,6 +42,7 @@ public class StreakService {
     private static final Duration NORMAL_TOLERANCE = Duration.ofMinutes(30);
     private static final Duration FREE_TOLERANCE = Duration.ofMinutes(60);
     private static final Duration AT_RISK_WINDOW = Duration.ofHours(2);
+    private static final LocalTime SETTLEMENT_CUTOFF = LocalTime.of(6, 0);
     private static final int FREE_MEDIAN_WINDOW_DAYS = 14;
     private static final int FREE_MEDIAN_MIN_SAMPLES = 5;
     private static final long MAX_RANGE_DAYS = 93;
@@ -75,10 +77,16 @@ public class StreakService {
         return buildStreakView(userId, tonightPlan);
     }
 
-    private StreakView buildStreakView(Long userId, PlanView tonightPlan) {
+    public record StreakCounts(int currentCount, int bestCount, LocalDate lastAchievedDate) {
+    }
+
+    /** 확정된(settled) 날짜까지만 스캔 — "오늘 밤"은 아직 안 끝난 날이라 포함하지 않는다. Plan을 새로 만들지 않는다. */
+    public StreakCounts getCurrentAndBest(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.AUTH_UNAUTHORIZED));
         LocalDate accountStart = user.getCreatedAt().atZone(ASIA_SEOUL).toLocalDate();
-        LocalDate settledThrough = tonightPlan.targetDate().minusDays(1);
+        LocalDate today = LocalDate.now(ASIA_SEOUL);
+        LocalDate settledThrough = OffsetDateTime.now(ASIA_SEOUL).toLocalTime().isBefore(SETTLEMENT_CUTOFF)
+                ? today.minusDays(1) : today;
 
         int current = 0;
         int best = 0;
@@ -93,6 +101,11 @@ public class StreakService {
                 current = 0;
             }
         }
+        return new StreakCounts(current, best, lastAchievedDate);
+    }
+
+    private StreakView buildStreakView(Long userId, PlanView tonightPlan) {
+        StreakCounts counts = getCurrentAndBest(userId);
 
         OffsetDateTime now = OffsetDateTime.now(ASIA_SEOUL);
         Target tonightTarget = resolveTarget(userId, tonightPlan.targetDate(), tonightPlan.mode(),
@@ -106,7 +119,8 @@ public class StreakService {
                 && (!now.isBefore(tonightTarget.value())
                     || Duration.between(now, tonightTarget.value()).compareTo(AT_RISK_WINDOW) <= 0);
 
-        return new StreakView(current, best, lastAchievedDate, todayAchieved, atRisk);
+        return new StreakView(counts.currentCount(), counts.bestCount(), counts.lastAchievedDate(), todayAchieved,
+                atRisk);
     }
 
     public DailyResultsResponse getDailyResults(Long userId, LocalDate from, LocalDate to) {
@@ -176,7 +190,7 @@ public class StreakService {
         List<Integer> continuousMinutes = sleepLogRepository
                 .findByUserIdAndDateBetweenOrderByDateDesc(userId, windowStart, windowEnd).stream()
                 .map(SleepLog::getBedAt)
-                .map(this::continuousMinuteOfDay)
+                .map(TimeOfDayMath::continuousMinuteOfDay)
                 .sorted()
                 .toList();
         if (continuousMinutes.size() < FREE_MEDIAN_MIN_SAMPLES) {
@@ -191,10 +205,4 @@ public class StreakService {
         return Optional.of(base.plusMinutes(Math.round(medianMinutes)));
     }
 
-    /** 정오 이전 시각은 다음날로 보고 연속축으로 변환(Logs의 averageTimeOfDay와 같은 접근). */
-    private int continuousMinuteOfDay(OffsetDateTime time) {
-        LocalTime lt = time.toLocalTime();
-        int minuteOfDay = lt.getHour() * 60 + lt.getMinute();
-        return minuteOfDay < 12 * 60 ? minuteOfDay + 1440 : minuteOfDay;
-    }
 }
