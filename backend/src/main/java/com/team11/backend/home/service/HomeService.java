@@ -11,9 +11,10 @@ import com.team11.backend.home.dto.HomeResponse.NextEventView;
 import com.team11.backend.home.dto.HomeResponse.OpenSleepLogView;
 import com.team11.backend.home.dto.HomeResponse.TonightView;
 import com.team11.backend.home.dto.StreakView;
-import com.team11.backend.logs.domain.SleepLog;
 import com.team11.backend.logs.domain.SleepLogStatus;
 import com.team11.backend.logs.repository.SleepLogRepository;
+import com.team11.backend.notifications.repository.NotificationRepository;
+import com.team11.backend.notifications.service.NotificationService;
 import com.team11.backend.plans.domain.FirstEventKind;
 import com.team11.backend.plans.dto.PlanView;
 import com.team11.backend.plans.service.PlanService;
@@ -49,10 +50,13 @@ public class HomeService {
     private final EventRepository eventRepository;
     private final TimetableEntryRepository timetableEntryRepository;
     private final SemesterProperties semesterProperties;
+    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
 
     public HomeService(PlanService planService, StreakService streakService, UserRepository userRepository,
                         SleepLogRepository sleepLogRepository, EventRepository eventRepository,
-                        TimetableEntryRepository timetableEntryRepository, SemesterProperties semesterProperties) {
+                        TimetableEntryRepository timetableEntryRepository, SemesterProperties semesterProperties,
+                        NotificationRepository notificationRepository, NotificationService notificationService) {
         this.planService = planService;
         this.streakService = streakService;
         this.userRepository = userRepository;
@@ -60,6 +64,8 @@ public class HomeService {
         this.eventRepository = eventRepository;
         this.timetableEntryRepository = timetableEntryRepository;
         this.semesterProperties = semesterProperties;
+        this.notificationRepository = notificationRepository;
+        this.notificationService = notificationService;
     }
 
     public HomeResponse getHome(Long userId) {
@@ -77,13 +83,18 @@ public class HomeService {
         OpenSleepLogView openSleepLog = sleepLogRepository.findFirstByUserIdAndStatus(userId, SleepLogStatus.OPEN)
                 .map(log -> new OpenSleepLogView(log.getId(), log.getBedAt()))
                 .orElse(null);
-        List<BannerView> banners = streak.atRisk()
-                ? List.of(new BannerView("STREAK_RISK", "오늘 스트릭이 끊길 위험이 있어요.", null))
-                : List.of();
+        List<BannerView> banners;
+        if (streak.atRisk()) {
+            notificationService.ensureStreakRiskNotification(userId, streak.currentCount());
+            banners = List.of(new BannerView("STREAK_RISK", "오늘 스트릭이 끊길 위험이 있어요.", null));
+        } else {
+            banners = List.of();
+        }
+        long unreadNotifications = notificationRepository.countByUserIdAndReadAtIsNull(userId);
 
         return new HomeResponse(now, tonight, nextEvents,
                 new HomeStreakView(streak.currentCount(), streak.bestCount(), streak.atRisk()),
-                CharacterView.from(user.getCharacter()), openSleepLog, null, 0, banners, null);
+                CharacterView.from(user.getCharacter()), openSleepLog, null, (int) unreadNotifications, banners, null);
     }
 
     private TonightView toTonightView(PlanView plan, OffsetDateTime now) {

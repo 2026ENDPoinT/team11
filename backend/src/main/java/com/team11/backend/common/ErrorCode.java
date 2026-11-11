@@ -34,6 +34,8 @@ public enum ErrorCode {
     SLEEP_LOG_ALREADY_OPEN(HttpStatus.CONFLICT, "이미 취침 중인 기록이 있어요."),
     SLEEP_LOG_NOT_OPEN(HttpStatus.CONFLICT, "종료할 취침 기록이 없어요. 직접 입력해 주세요."),
     SLEEP_LOG_OVERLAP(HttpStatus.CONFLICT, "다른 수면 기록과 시간이 겹쳐요."),
+    DEVICE_NOT_FOUND(HttpStatus.NOT_FOUND, "기기 정보가 없어요."),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림이 없어요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했어요.");
 
     private final HttpStatus httpStatus;
