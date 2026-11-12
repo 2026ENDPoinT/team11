@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080} # Railway는 PORT 환경변수로 바인딩할 포트를 동적으로 줌
+
 spring:
   application:
     name: backend
