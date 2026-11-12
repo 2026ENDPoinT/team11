@@ -284,6 +284,8 @@ public class StatsService {
 
     // ---------- STAT-05 ----------
 
+    /** suggestionFor()가 오늘 밤 Plan을 새로 만들 수 있어 클래스 레벨 readOnly를 여기서만 덮어쓴다. */
+    @Transactional
     public UpcomingRisksResponse getUpcomingRisks(Long userId, Integer daysParam) {
         int days = daysParam != null ? daysParam : 3;
         if (days < 1 || days > 7) {
