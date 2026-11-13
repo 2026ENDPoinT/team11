@@ -6,15 +6,20 @@ import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.logs.domain.SleepLog;
 import com.team11.backend.logs.domain.SleepLogSource;
 import com.team11.backend.logs.domain.SleepLogStatus;
+import com.team11.backend.logs.domain.SleepStage;
 import com.team11.backend.logs.dto.CreateSleepLogRequest;
 import com.team11.backend.logs.dto.EndSleepLogRequest;
 import com.team11.backend.logs.dto.EndSleepLogResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse.Summary;
 import com.team11.backend.logs.dto.SleepLogView;
+import com.team11.backend.logs.dto.SleepStageView;
 import com.team11.backend.logs.dto.StartSleepLogRequest;
+import com.team11.backend.logs.dto.SyncWearableSleepLogsRequest;
+import com.team11.backend.logs.dto.SyncWearableSleepLogsResponse;
 import com.team11.backend.logs.dto.UpdateSleepLogRequest;
 import com.team11.backend.logs.repository.SleepLogRepository;
+import com.team11.backend.logs.repository.SleepStageRepository;
 import com.team11.backend.plans.domain.Plan;
 import com.team11.backend.plans.domain.PlanStatus;
 import com.team11.backend.plans.repository.PlanRepository;
@@ -26,8 +31,10 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,12 +49,14 @@ public class SleepLogService {
     private static final long MAX_RANGE_DAYS = 93;
 
     private final SleepLogRepository sleepLogRepository;
+    private final SleepStageRepository sleepStageRepository;
     private final UserRepository userRepository;
     private final PlanRepository planRepository;
 
-    public SleepLogService(SleepLogRepository sleepLogRepository, UserRepository userRepository,
-                            PlanRepository planRepository) {
+    public SleepLogService(SleepLogRepository sleepLogRepository, SleepStageRepository sleepStageRepository,
+                            UserRepository userRepository, PlanRepository planRepository) {
         this.sleepLogRepository = sleepLogRepository;
+        this.sleepStageRepository = sleepStageRepository;
         this.userRepository = userRepository;
         this.planRepository = planRepository;
     }
@@ -107,6 +116,53 @@ public class SleepLogService {
         return SleepLogView.from(log);
     }
 
+    /**
+     * 애플워치/갤럭시워치 등에서 앱이 읽어 온 수면 데이터를 배치로 올린다(ETC-01 featureFlags.wearableSync).
+     * 날짜(wakeAt 기준)당 1건: 이미 동기화된 WEARABLE 기록이 있으면 갱신하고, 수동 기록 등 다른 기록과 겹치면 그 건만 건너뛴다.
+     */
+    public SyncWearableSleepLogsResponse syncFromWearable(Long userId, SyncWearableSleepLogsRequest request) {
+        findUserWithConsent(userId);
+        List<SleepLogView> synced = new ArrayList<>();
+        int skipped = 0;
+        for (SyncWearableSleepLogsRequest.Entry entry : request.logs()) {
+            SleepLogView view = syncOne(userId, entry);
+            if (view == null) {
+                skipped++;
+            } else {
+                synced.add(view);
+            }
+        }
+        return new SyncWearableSleepLogsResponse(synced.size(), skipped, synced);
+    }
+
+    private SleepLogView syncOne(Long userId, SyncWearableSleepLogsRequest.Entry entry) {
+        if (!entry.wakeAt().isAfter(entry.bedAt())
+                || Duration.between(entry.bedAt(), entry.wakeAt()).compareTo(MAX_SLEEP_DURATION) > 0) {
+            return null;
+        }
+        LocalDate date = entry.wakeAt().toLocalDate();
+        SleepLog existing = sleepLogRepository.findByUserIdAndDateAndSource(userId, date, SleepLogSource.WEARABLE)
+                .orElse(null);
+        Long excludeId = existing != null ? existing.getId() : null;
+        if (hasClosedOverlap(userId, entry.bedAt(), entry.wakeAt(), excludeId)) {
+            return null;
+        }
+        if (existing != null) {
+            existing.update(entry.bedAt(), entry.wakeAt(), entry.quality(), date);
+        }
+        SleepLog log = existing != null ? existing
+                : sleepLogRepository.save(new SleepLog(userId, entry.bedAt(), entry.wakeAt(), entry.quality(),
+                        date, SleepLogSource.WEARABLE));
+        Long logId = log.getId();
+
+        sleepStageRepository.deleteBySleepLogId(logId);
+        List<SleepStageView> stageViews = entry.stagesOrEmpty().stream()
+                .map(s -> SleepStageView.from(
+                        sleepStageRepository.save(new SleepStage(logId, s.stage(), s.startAt(), s.endAt()))))
+                .toList();
+        return SleepLogView.from(log, stageViews);
+    }
+
     @Transactional(readOnly = true)
     public SleepLogListResponse list(Long userId, LocalDate from, LocalDate to, SleepLogStatus status) {
         if (ChronoUnit.DAYS.between(from, to) > MAX_RANGE_DAYS) {
@@ -122,12 +178,29 @@ public class SleepLogService {
         String avgWakeTime = averageTimeOfDay(logs.stream().map(SleepLog::getWakeAt).toList());
 
         Summary summary = new Summary(logs.size(), avgDurationMin, avgBedTime, avgWakeTime);
-        return new SleepLogListResponse(logs.stream().map(SleepLogView::from).toList(), summary);
+        Map<Long, List<SleepStageView>> stagesByLogId = stagesByLogId(logs.stream().map(SleepLog::getId).toList());
+        List<SleepLogView> views = logs.stream()
+                .map(l -> SleepLogView.from(l, stagesByLogId.getOrDefault(l.getId(), List.of())))
+                .toList();
+        return new SleepLogListResponse(views, summary);
     }
 
     @Transactional(readOnly = true)
     public SleepLogView getOne(Long userId, Long sleepLogId) {
-        return SleepLogView.from(findOwned(userId, sleepLogId));
+        SleepLog log = findOwned(userId, sleepLogId);
+        List<SleepStageView> stages = sleepStageRepository.findBySleepLogIdOrderByStartAtAsc(log.getId()).stream()
+                .map(SleepStageView::from)
+                .toList();
+        return SleepLogView.from(log, stages);
+    }
+
+    private Map<Long, List<SleepStageView>> stagesByLogId(List<Long> sleepLogIds) {
+        if (sleepLogIds.isEmpty()) {
+            return Map.of();
+        }
+        return sleepStageRepository.findBySleepLogIdInOrderByStartAtAsc(sleepLogIds).stream()
+                .collect(Collectors.groupingBy(SleepStage::getSleepLogId,
+                        Collectors.mapping(SleepStageView::from, Collectors.toList())));
     }
 
     public SleepLogView update(Long userId, Long sleepLogId, UpdateSleepLogRequest request) {
@@ -166,12 +239,15 @@ public class SleepLogService {
 
     /** 명세: "이미 종료된 기록과 겹치면" — OPEN 기록은 끝이 정의되지 않아 겹침 판정에서 제외. */
     private void requireNoClosedOverlap(Long userId, OffsetDateTime start, OffsetDateTime end, Long excludeId) {
-        boolean overlaps = sleepLogRepository.findByUserIdAndStatus(userId, SleepLogStatus.CLOSED).stream()
-                .filter(l -> !l.getId().equals(excludeId))
-                .anyMatch(l -> l.getBedAt().isBefore(end) && start.isBefore(l.getWakeAt()));
-        if (overlaps) {
+        if (hasClosedOverlap(userId, start, end, excludeId)) {
             throw new ApiException(ErrorCode.SLEEP_LOG_OVERLAP);
         }
+    }
+
+    private boolean hasClosedOverlap(Long userId, OffsetDateTime start, OffsetDateTime end, Long excludeId) {
+        return sleepLogRepository.findByUserIdAndStatus(userId, SleepLogStatus.CLOSED).stream()
+                .filter(l -> !l.getId().equals(excludeId))
+                .anyMatch(l -> l.getBedAt().isBefore(end) && start.isBefore(l.getWakeAt()));
     }
 
     /** 정오를 기준으로 그 이전 시각은 다음날로 보고 평균 낸 뒤 모듈로 — 취침/기상 시각은 거의 항상 이 경계를 안 넘는다. */
