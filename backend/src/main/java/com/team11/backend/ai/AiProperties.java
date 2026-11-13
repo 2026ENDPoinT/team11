@@ -1,10 +1,12 @@
 package com.team11.backend.ai;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/** AI 서버 호스팅 위치가 아직 미정(CLAUDE.md §10)이라 base-url은 기본 빈 문자열 — 비어있으면 호출 자체를 안 하고 폴백한다. */
+/** 통합 AI 서버 주소, 내부 인증 키, 연결 및 응답 타임아웃. */
 @ConfigurationProperties(prefix = "ai")
-public record AiProperties(String baseUrl, String internalKey, long timeoutSeconds) {
+public record AiProperties(String baseUrl, String internalKey, @DefaultValue("4") long timeoutSeconds,
+                           @DefaultValue("15") long longTimeoutSeconds) {
 
     public boolean isConfigured() {
         return baseUrl != null && !baseUrl.isBlank();

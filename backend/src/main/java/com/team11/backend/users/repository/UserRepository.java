@@ -1,5 +1,6 @@
 package com.team11.backend.users.repository;
 
+import com.team11.backend.users.domain.ConsentType;
 import com.team11.backend.users.domain.User;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +12,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByLoginId(String loginId);
 
     boolean existsByNicknameAndIdNot(String nickname, Long id);
+
+    boolean existsByIdAndConsentsTypeAndConsentsAgreedTrue(Long id, ConsentType type);
 }
