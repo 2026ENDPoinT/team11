@@ -1,140 +1,130 @@
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { C, MOOD_IMG, Pill, Screen, Segmented, WEEKDAY, fmtDate, fmtHm } from '../../components/ui';
-import { fmtHM, sleepMin, summarize, useStore, ymd, type SleepRecord } from '../../store';
+import * as api from '../../api/endpoints';
+import type { ReportPeriod } from '../../api/types';
+import { AddButton, Pill, Screen, Segmented, Status } from '../../components/ui';
+import { addDays, fmtDateKo, todayKst, WEEKDAY_KO, weekday } from '../../kst';
+import { C } from '../../theme';
+import { useApi } from '../../useApi';
 
-const MAX_H = 10; // 차트 최대 10시간
+export const MOOD: Record<1 | 2 | 3, number> = {
+  3: require('../../assets/images/mood_happy.png'),
+  2: require('../../assets/images/mood_neutral.png'),
+  1: require('../../assets/images/mood_sad.png'),
+};
+export const hm = (min: number) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`;
+const PLOT_H = 100;
+const MAX_MIN = 10 * 60;
 
-// 4 주간 리포트 (14:917) / 4-1 월간 리포트 (57:1315)
+// 4 주간(264:359) / 4-1 월간(264:443) 리포트. 집계는 서버 값 그대로(avgSleepMin·avgBedTime·regularityPct).
 export default function ReportScreen() {
-  const navigation = useNavigation();
-  const { records } = useStore();
-  const [mode, setMode] = useState<'주간' | '월간'>('주간');
-  const [anchor, setAnchor] = useState(() => new Date());
+  const nav = useNavigation();
+  const [period, setPeriod] = useState<ReportPeriod>('WEEK');
+  const [date, setDate] = useState(todayKst());
+  const r = useApi(() => api.getReport(period, date), [period, date]);
 
-  // 주간: anchor 포함 지난 7일 / 월간: anchor가 속한 달
-  const days =
-    mode === '주간'
-      ? Array.from({ length: 7 }, (_, i) =>
-          ymd(new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - 6 + i)),
-        )
-      : Array.from({ length: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate() }, (_, i) =>
-          ymd(new Date(anchor.getFullYear(), anchor.getMonth(), i + 1)),
-        );
-  const byDate = new Map(records.map(r => [r.date, r]));
-  const list = days.map(d => byDate.get(d)).filter((r): r is SleepRecord => !!r).reverse();
-  const stats = summarize(list);
-
-  const move = (dir: number) =>
-    setAnchor(a =>
-      mode === '주간'
-        ? new Date(a.getFullYear(), a.getMonth(), a.getDate() + 7 * dir)
-        : new Date(a.getFullYear(), a.getMonth() + dir, 1),
-    );
+  // ‹ › : 주간은 ±7일, 월간은 ±1달(1일 기준)
+  const shift = (dir: 1 | -1) => {
+    if (period === 'WEEK') setDate(addDays(date, 7 * dir));
+    else {
+      const [y, m] = date.split('-').map(Number);
+      const nm = m + dir;
+      setDate(`${nm < 1 ? y - 1 : nm > 12 ? y + 1 : y}-${String(((nm + 11) % 12) + 1).padStart(2, '0')}-01`);
+    }
+  };
+  const label = period === 'WEEK' ? fmtDateKo(date) : `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월`;
+  const daily = r.data?.daily ?? [];
+  const logged = [...daily].filter(d => d.sleepLogId).reverse();
 
   return (
     <Screen scroll>
-      <Segmented options={['주간', '월간'] as const} value={mode} onChange={setMode} />
-      <View style={styles.dateRow}>
-        <Pill outline title="‹" onPress={() => move(-1)} />
-        <Text style={styles.dateTitle}>
-          {mode === '주간' ? fmtDate(ymd(anchor)) : `${anchor.getFullYear()}년 ${anchor.getMonth() + 1}월`}
-        </Text>
-        <Pill outline title="›" onPress={() => move(1)} />
+      <Segmented options={[{ value: 'WEEK', label: '주간' }, { value: 'MONTH', label: '월간' }]} value={period} onChange={setPeriod} />
+      <View style={st.range}>
+        <Pill title="‹" kind="outline" onPress={() => shift(-1)} accessibilityLabel="이전" />
+        <Text style={st.rangeLabel}>{label}</Text>
+        <Pill title="›" kind="outline" onPress={() => shift(1)} accessibilityLabel="다음" />
       </View>
 
-      {/* 피그마 'image 1' 차트 자리: 기록으로 직접 그림 */}
-      <View style={styles.chart}>
-        <Text style={styles.big}>{stats ? fmtHm(stats.avg) : '-'}</Text>
-        <View style={styles.plot}>
-          {[MAX_H, MAX_H / 2, 0].map(v => (
-            <View key={v} style={[styles.grid, { bottom: `${(v / MAX_H) * 100}%` }]}>
-              <Text style={styles.axis}>{v ? `${v}h` : '0'}</Text>
-            </View>
-          ))}
-          <View style={styles.bars}>
-            {days.map(d => {
-              const r = byDate.get(d);
-              const h = r ? Math.min(sleepMin(r) / 60, MAX_H) : 0;
-              return (
-                <View key={d} style={styles.barCol}>
-                  <View style={[styles.bar, { height: `${(h / MAX_H) * 100}%` }]} />
+      {r.error ? (
+        <Status error={r.error} onRetry={r.reload} />
+      ) : (
+        <>
+          <View style={st.chart}>
+            <Text style={st.big}>{r.data?.avgSleepMin != null ? hm(r.data.avgSleepMin) : '—'}</Text>
+            <View style={st.plot}>
+              {[10, 5, 0].map(h => (
+                <View key={h} style={[st.grid, { top: PLOT_H - (h / 10) * PLOT_H }]}>
+                  <Text style={st.gridLabel}>{h ? `${h}h` : '0'}</Text>
                 </View>
-              );
-            })}
+              ))}
+              <View style={st.bars}>
+                {daily.map(d => (
+                  <View key={d.date} style={st.barSlot}>
+                    {d.sleepMin != null && <View style={[st.bar, { height: (Math.min(d.sleepMin, MAX_MIN) / MAX_MIN) * PLOT_H }]} />}
+                  </View>
+                ))}
+              </View>
+            </View>
+            {period === 'WEEK' && (
+              <View style={st.labels}>
+                {daily.map(d => (
+                  <Text key={d.date} style={st.label}>{WEEKDAY_KO[weekday(d.date)]}</Text>
+                ))}
+              </View>
+            )}
           </View>
-        </View>
-        {mode === '주간' && (
-          <View style={styles.labels}>
-            {days.map(d => (
-              <Text key={d} style={styles.label}>{WEEKDAY[new Date(d + 'T00:00:00').getDay()]}</Text>
-            ))}
+          <View style={st.summary}>
+            <Stat label="평균 수면" value={r.data?.avgSleepMin != null ? hm(r.data.avgSleepMin) : '—'} />
+            <Stat label="평균 취침" value={r.data?.avgBedTime ?? '—'} />
+            <Stat label="규칙성" value={r.data?.regularityPct != null ? `${r.data.regularityPct}%` : '—'} />
           </View>
-        )}
-      </View>
-
-      <View style={styles.summary}>
-        <Stat label="평균 수면" value={stats ? fmtHm(stats.avg) : '-'} />
-        <Stat label="평균 취침" value={stats ? fmtHM(stats.bed) : '-'} />
-        <Stat label="규칙성" value={stats ? `${stats.regular}%` : '-'} />
-      </View>
-
-      {list.map(r => (
-        <Pressable
-          key={r.date}
-          style={styles.item}
-          onPress={() => navigation.navigate('SleepRecord', { date: r.date })}
-        >
-          <Text style={styles.itemDate}>{fmtDate(r.date)}</Text>
-          {r.mood && <Image source={MOOD_IMG[r.mood]} style={styles.mood} />}
-          <Text style={styles.itemSub}>| {fmtHm(sleepMin(r))}</Text>
-          <Text style={styles.chev}>›</Text>
-        </Pressable>
-      ))}
-      {!list.length && <Text style={styles.empty}>이 기간에 수면 기록이 없어요.</Text>}
+          {logged.map(d => (
+            <Pressable key={d.date} style={st.row} onPress={() => nav.navigate('SleepRecord', { sleepLogId: d.sleepLogId!, date: d.date })} accessibilityRole="button">
+              <Text style={st.rowDate}>{fmtDateKo(d.date)}</Text>
+              {d.quality && <Image source={MOOD[d.quality]} style={st.mood} />}
+              <Text style={st.rowDur}>| {hm(d.sleepMin ?? 0)}</Text>
+              <Text style={st.chev}>›</Text>
+            </Pressable>
+          ))}
+          {!r.loading && !logged.length && <Text style={st.empty}>이 기간엔 수면 기록이 없어요.</Text>}
+          <AddButton title="+ 수면 기록" onPress={() => nav.navigate('SleepRecord', { date: todayKst() })} />
+        </>
+      )}
     </Screen>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+    <View style={st.stat}>
+      <Text style={st.statLabel}>{label}</Text>
+      <Text style={st.statValue}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.text },
+const st = StyleSheet.create({
+  range: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rangeLabel: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.text },
   chart: { backgroundColor: '#FAFAFA', borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 16, gap: 8 },
   big: { fontSize: 28, color: C.text },
-  plot: { height: 100, marginRight: 28 },
-  grid: { position: 'absolute', left: 0, right: -28, borderTopWidth: 1, borderColor: '#E5E5E5' },
-  axis: { position: 'absolute', right: 0, top: -7, fontSize: 10, color: '#BDBDBD' },
-  bars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  barCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
-  bar: { width: '60%', backgroundColor: '#CFCDD6' },
-  labels: { flexDirection: 'row', marginRight: 28 },
+  plot: { height: PLOT_H, marginTop: 8, marginRight: 28 },
+  grid: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#E5E5E5' },
+  gridLabel: { position: 'absolute', right: -28, top: -7, width: 26, textAlign: 'right', fontSize: 10, color: '#BDBDBD' },
+  bars: { position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, flexDirection: 'row' },
+  barSlot: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  bar: { width: '55%', backgroundColor: '#CFCDD6' },
+  labels: { flexDirection: 'row', paddingRight: 28 },
   label: { flex: 1, textAlign: 'center', fontSize: 10, color: '#BDBDBD' },
   summary: { flexDirection: 'row', gap: 8, borderWidth: 1, borderColor: '#D2D2D2', borderRadius: 8 },
   stat: { flex: 1, alignItems: 'center', gap: 2, padding: 14 },
   statLabel: { fontSize: 11, color: C.sub },
   statValue: { fontSize: 16, fontWeight: '700', color: C.text },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderColor: C.fill,
-  },
-  itemDate: { flex: 1, fontSize: 15, color: C.text },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
+  rowDate: { flex: 1, fontSize: 15, color: C.text },
   mood: { width: 24, height: 24, opacity: 0.6 },
-  itemSub: { fontSize: 13, color: C.sub },
+  rowDur: { fontSize: 13, color: C.sub },
   chev: { fontSize: 16, color: C.sub },
-  empty: { textAlign: 'center', fontSize: 13, color: C.sub, paddingVertical: 24 },
+  empty: { textAlign: 'center', fontSize: 13, color: C.sub, paddingVertical: 12 },
 });

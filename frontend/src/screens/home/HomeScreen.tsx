@@ -1,220 +1,225 @@
-import { useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import BellIcon from '../../assets/icons/home/bell.svg';
-import { Button, C, Stepper, Wheel, fmtMin } from '../../components/ui';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import BellIcon from '../../assets/icons/bell.svg';
+import { ApiError } from '../../api/client';
+import * as api from '../../api/endpoints';
+import type { ExamNature, Plan, PlanMode, PreparationState, Settings } from '../../api/types';
+import { Gradient } from '../../components/Gradient';
+import { Pill } from '../../components/ui';
+import { fmtHM, parseIso, todayKst } from '../../kst';
+import { useSession } from '../../session';
+import { C } from '../../theme';
+import { appConfig } from '../auth/SplashScreen';
+import { FocusSettingsSheet, SleepSettingsSheet, StudyModeSheet, st as sheetSt } from './HomeSheets';
+import { MODES, PENGUIN } from './modes';
 
-// 목표 수면 시간 휠: 3시간 ~ 12시간, 30분 단위
-const GOALS = Array.from({ length: 19 }, (_, i) => 3 * 60 + i * 30);
-
-const IMG = {
-  penguin: require('../../assets/images/penguin.png'),
-  penguinExam: require('../../assets/images/penguin_exam.png'),
-};
-
-// 수면 막대가 보여주는 시간 범위: 21:00 ~ 다음날 10:00
+// 수면 막대 범위 21:00 ~ 다음날 10:00
 const BAR_START = 21 * 60;
 const BAR_LEN = 13 * 60;
+const onBar = (min: number) => (((min - BAR_START + 1440) % 1440) / BAR_LEN) * 100;
 
-const hhmm = (m: number) => {
-  const v = ((m % 1440) + 1440) % 1440;
-  return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
-};
-const onBar = (m: number) => (((m - BAR_START + 1440) % 1440) / BAR_LEN) * 100;
-
-// 1 홈 (17:2) · 1-1 수면설정 시트 (97:436) · 1-2 시험기간 (40:161) · 1-3 시험모드 시트 (97:672)
+// 1-A 일상(415:2269) · 1-B 시험(415:2296) · 1-C 집중(415:2322). 취침/기상은 서버 플랜 값을 그대로 보여준다.
 export default function HomeScreen() {
-  const navigation = useNavigation();
-  // 카드 위 '일상 / 시험' 버튼으로 전환
-  // ponytail: 시험 기간이 되면 일정의 '시험' 일정으로 자동 전환하는 건 아직 없음
-  const [exam, setExam] = useState(false);
-  const [sheet, setSheet] = useState(false);
-  const [picking, setPicking] = useState(false); // 목표 수면 시간 휠 열림
-  const closeSheet = () => {
-    setSheet(false);
-    setPicking(false);
-  };
-  // 메모(Frame 13): 일상이랑 시험 기간의 수면설정(목표 수면·준비·통학)은 서로 연동되지 않게 → 모드별로 따로 보관
-  // ponytail: 앱 메모리에만 있음. 저장소 정해지면 store로 옮기기
-  const [plans, setPlans] = useState({
-    daily: { goal: 7 * 60 + 30, ready: 40, commute: 50 },
-    exam: { goal: 7 * 60 + 30, ready: 40, commute: 50 },
-  });
-  const mode = exam ? 'exam' : 'daily';
-  const { goal, ready, commute } = plans[mode];
-  const setPlan = (patch: Partial<typeof plans.daily>) =>
-    setPlans(p => ({ ...p, [mode]: { ...p[mode], ...patch } }));
-  const setGoal = (v: number) => setPlan({ goal: v });
-  const setReady = (v: number) => setPlan({ ready: v });
-  const setCommute = (v: number) => setPlan({ commute: v });
+  const nav = useNavigation();
+  const { me, setMe } = useSession();
+  // ponytail: 마지막 모드는 메모리에만. 앱 재시작하면 일상으로.
+  const [mode, setMode] = useState<PlanMode>('NORMAL');
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [sheet, setSheet] = useState<'sleep' | 'focus' | 'study' | null>(null);
+  // 시험 모드 POST 바디(공부량·성격). 처음엔 없음 → 공부 모드 시트부터.
+  const [examReq, setExamReq] = useState<{ preparationState: PreparationState; examNature: ExamNature } | null>(null);
+  const m = MODES[mode];
 
-  // ponytail: 첫 수업은 시간표 데이터 연결 전까지 고정값
-  const firstClass = { name: '1교시 오픈소스소프트웨어', start: 9 * 60 };
-  const wake = firstClass.start - ready - commute;
-  const bed = wake - goal;
+  const load = useCallback(
+    async (target: PlanMode, regenerate = false, body?: typeof examReq) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const p = regenerate
+          ? await api.regeneratePlan(target, target === 'EXAM' ? body ?? examReq ?? undefined : undefined)
+          : await api.getPlanToday(target);
+        setPlan(p);
+      } catch (e) {
+        const err = e instanceof ApiError ? e : new ApiError('UNKNOWN', '플랜을 불러오지 못했어요.', 0);
+        // 시험 모드 첫 생성은 바디가 있어야 함 → 공부 모드 시트로 유도
+        if (target === 'EXAM' && err.code === 'VALIDATION_FAILED' && !examReq) setSheet('study');
+        setPlan(null);
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [examReq],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      load(mode);
+    }, [mode, load]),
+  );
+
+  const switchMode = (next: PlanMode) => {
+    if (next === mode) return;
+    setMode(next);
+  };
+
+  const saveSettings = async (patch: Partial<Settings>) => {
+    try {
+      const s = await api.updateSettings(patch);
+      if (me) setMe({ ...me, settings: s });
+      setSheet(null);
+      await load(mode, true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e : new ApiError('UNKNOWN', '저장에 실패했어요.', 0));
+      setSheet(null);
+    }
+  };
+
+  const saveStudy = async (req: { preparationState: PreparationState; examNature: ExamNature }) => {
+    setExamReq(req);
+    setSheet(null);
+    await load('EXAM', true, req);
+  };
+
+  const openCardSheet = () => {
+    if (mode === 'FOCUS') setSheet('focus');
+    else setSheet('sleep');
+  };
+
+  const bed = plan?.bedAt ? parseIso(plan.bedAt).min : null;
+  const wake = plan?.wakeAt ? parseIso(plan.wakeAt).min : null;
+  const modes: PlanMode[] = ['NORMAL', ...(appConfig.focusMode ? (['FOCUS'] as PlanMode[]) : []), ...(appConfig.examMode ? (['EXAM'] as PlanMode[]) : [])];
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      {/* unslop에는 알림 목록 화면이 없어서 5-2 알림 설정으로 연결 */}
-      <Pressable
-        style={styles.bell}
-        accessibilityRole="button"
-        accessibilityLabel="알림 설정"
-        onPress={() => navigation.navigate('NotificationSettings')}
-      >
-        <BellIcon width={20} height={20} />
-      </Pressable>
-
-      <View style={styles.center}>
-        <Image
-          source={exam ? IMG.penguinExam : IMG.penguin}
-          style={styles.penguin}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* 피그마 'card 일상/시험 모드': 카드 위 왼쪽. 지금 모드 글자만 진하게 */}
-      <Pressable
-        style={styles.mode}
-        onPress={() => setExam(e => !e)}
-        accessibilityRole="switch"
-        accessibilityLabel="시험 모드"
-        accessibilityState={{ checked: exam }}
-      >
-        <Text style={styles.modeText}>
-          <Text style={!exam && styles.modeOn}>일상</Text> / <Text style={exam && styles.modeOn}>시험</Text>
-        </Text>
-      </Pressable>
-
-      <Pressable style={styles.card} onPress={() => setSheet(true)} accessibilityRole="button">
-        <View style={styles.times}>
-          <View>
-            <Text style={styles.timeLabel}>권장 취침</Text>
-            <Text style={styles.time}>{hhmm(bed)}</Text>
+    <View style={st.screen}>
+      <Gradient from={m.from} to={m.to} />
+      <SafeAreaView style={st.safe} edges={['top']}>
+        <View style={st.topRow}>
+          <View style={st.modeButtons}>
+            {modes.map(k => {
+              const on = k === mode;
+              return (
+                <Pressable
+                  key={k}
+                  style={[sheetSt.modePill, on ? { backgroundColor: MODES[k].accent } : sheetSt.modePillOff]}
+                  onPress={() => switchMode(k)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[sheetSt.modePillText, on && sheetSt.modePillTextOn]}>{MODES[k].label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-          <View style={styles.alignEnd}>
-            <Text style={styles.timeLabel}>권장 기상</Text>
-            <Text style={styles.time}>{hhmm(wake)}</Text>
-          </View>
+          <Pressable style={st.bell} onPress={() => nav.navigate('NotificationSettings')} accessibilityRole="button" accessibilityLabel="알림 설정">
+            <BellIcon width={20} height={20} color={C.ink} />
+          </Pressable>
         </View>
-        <View style={styles.sleepTrack}>
-          <View
-            style={[
-              styles.sleepRange,
-              { left: `${onBar(bed)}%`, width: `${(goal / BAR_LEN) * 100}%` },
-            ]}
-          />
-        </View>
-        <Text style={styles.classText}>
-          {firstClass.name}({hhmm(firstClass.start)})
-        </Text>
-      </Pressable>
 
-      <Modal visible={sheet} transparent animationType="slide" onRequestClose={closeSheet}>
-        <Pressable style={styles.dim} onPress={closeSheet} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>수면 설정</Text>
-          {/* 메모: 목표 수면 시간은 평소엔 값만, 숫자 누르면 휠이 모달로 나오고 숫자를 고르면 사라짐
-              / 준비·통학은 10분 단위, 3시간 이하, −,+ 위치 고정 */}
-          <View style={styles.sheetBody}>
-            <View style={styles.row}>
-              <Text style={styles.label}>목표 수면 시간</Text>
-              <Pressable
-                onPress={() => setPicking(true)}
-                accessibilityRole="button"
-                accessibilityHint="눌러서 시간 고르기"
-              >
-                <Text style={styles.goal}>{fmtMin(goal)}</Text>
-              </Pressable>
+        <View style={st.center}>
+          <Image source={PENGUIN[mode]} style={st.penguin} resizeMode="contain" />
+        </View>
+
+        {/* card/오늘 수면 플랜 */}
+        <Pressable style={st.card} onPress={openCardSheet} accessibilityRole="button" accessibilityLabel="수면 설정 열기">
+          {loading ? (
+            <ActivityIndicator color={m.accent} style={st.cardStatus} />
+          ) : error ? (
+            <View style={st.cardStatus}>
+              <Text style={st.warn}>{error.message}</Text>
+              {error.code === 'SLEEP_HISTORY_INSUFFICIENT' && (
+                <Pill title="수면 기록하기" kind="outline" onPress={() => nav.navigate('SleepRecord', { date: todayKst() })} />
+              )}
+              {mode === 'EXAM' && error.code === 'VALIDATION_FAILED' && (
+                <Pill title="공부 모드 설정" kind="outline" onPress={() => setSheet('study')} />
+              )}
+              {mode === 'EXAM' && error.code === 'EVENT_NOT_FOUND' && (
+                <Pill title="시험 일정 추가" kind="outline" onPress={() => nav.navigate('EventEdit', {})} />
+              )}
+              {!['SLEEP_HISTORY_INSUFFICIENT', 'VALIDATION_FAILED', 'EVENT_NOT_FOUND'].includes(error.code) && (
+                <Pill title="다시 시도" kind="outline" onPress={() => load(mode)} />
+              )}
             </View>
-            <Stepper label="기상 후 준비 시간" value={ready} onChange={setReady} max={180} />
-            <Stepper label="통학 시간" value={commute} onChange={setCommute} max={180} />
-            <Button title="완료" onPress={closeSheet} style={styles.done} />
-          </View>
-        </View>
-
-        {/* 목표 수면 시간 휠 모달: 굴려서 맞추고 숫자를 누르면 확정되고 닫힘. 바깥을 눌러도 닫힘 */}
-        <Modal visible={picking} transparent animationType="fade" onRequestClose={() => setPicking(false)}>
-          <View style={styles.pickerWrap}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setPicking(false)} accessibilityLabel="닫기" />
-            <View style={styles.picker}>
-              <Text style={styles.pickerTitle}>목표 수면 시간</Text>
-              <Wheel values={GOALS} value={goal} onChange={setGoal} onPick={() => setPicking(false)} />
+          ) : plan && (plan.status === 'NO_FEASIBLE_PLAN' || bed === null || wake === null) ? (
+            <View style={st.cardStatus}>
+              <Text style={st.warn}>{plan.warnings[0] ?? '오늘은 맞는 플랜을 못 찾았어요.'}</Text>
+              <Pill title="다시 만들기" kind="outline" onPress={() => load(mode, true)} />
             </View>
-          </View>
-        </Modal>
-      </Modal>
-    </SafeAreaView>
+          ) : (
+            <>
+              <View style={st.times}>
+                <View>
+                  <Text style={st.timeLabel}>권장 취침</Text>
+                  <Text style={st.time}>{fmtHM(bed!)}</Text>
+                </View>
+                <View style={st.alignEnd}>
+                  <Text style={st.timeLabel}>권장 기상</Text>
+                  <Text style={st.time}>{fmtHM(wake!)}</Text>
+                </View>
+              </View>
+              <View style={[st.track, { backgroundColor: m.track }]}>
+                <View
+                  style={[
+                    st.range,
+                    { backgroundColor: m.accent, left: `${onBar(bed!)}%`, width: `${(((wake! - bed! + 1440) % 1440) / BAR_LEN) * 100}%` },
+                  ]}
+                />
+              </View>
+              <Text style={st.basis}>{plan!.basisText ?? '내일 일정 없음 · 기본 기상 09:00'}</Text>
+            </>
+          )}
+        </Pressable>
+      </SafeAreaView>
+
+      {me && sheet === 'sleep' && mode !== 'FOCUS' && (
+        <SleepSettingsSheet mode={mode} visible settings={me.settings} onClose={() => setSheet(null)} onDone={saveSettings} />
+      )}
+      {me && sheet === 'focus' && (
+        <FocusSettingsSheet visible settings={me.settings} onClose={() => setSheet(null)} onDone={saveSettings} />
+      )}
+      {sheet === 'study' && <StudyModeSheet visible initial={examReq ?? undefined} onClose={() => setSheet(null)} onDone={saveStudy} />}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 24 },
-  alignEnd: { alignItems: 'flex-end' },
+const st = StyleSheet.create({
+  screen: { flex: 1 },
+  safe: { flex: 1, paddingHorizontal: 20, paddingBottom: 24 },
+  topRow: { height: 46, marginTop: 6, justifyContent: 'center' },
+  modeButtons: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6, top: 30 },
   bell: {
     alignSelf: 'flex-end',
-    marginTop: 6,
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(42,44,62,0.08)',
+    borderColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 피그마: 펭귄 262~590, 일상/시험 버튼 593~627, 카드 630 → 사이 간격 3px씩
-  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3 },
-  mode: {
-    alignSelf: 'flex-start',
-    height: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    marginBottom: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(42,44,62,0.08)',
-    borderRadius: 12,
-  },
-  modeText: { fontSize: 12, lineHeight: 16, color: '#9C9C9C' },
-  modeOn: { color: '#2A2C3E', fontWeight: '700' },
-  penguin: { width: 307, height: 328 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+  penguin: { width: 362, height: 362, maxWidth: '100%' },
   card: {
+    backgroundColor: 'rgba(255,255,255,0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(42,44,62,0.08)',
+    borderColor: C.hairline,
     borderRadius: 12,
     padding: 16,
     gap: 12,
+    minHeight: 132,
+    justifyContent: 'center',
   },
+  cardStatus: { alignItems: 'center', gap: 10, paddingVertical: 8 },
+  warn: { fontSize: 13, color: C.inkSoft, textAlign: 'center' },
   times: { flexDirection: 'row', justifyContent: 'space-between' },
-  timeLabel: { fontSize: 12, lineHeight: 16, color: '#5A5D75' },
-  time: { fontSize: 28, lineHeight: 36, fontWeight: '500', color: '#2A2C3E' },
-  sleepTrack: { height: 8, borderRadius: 4, backgroundColor: '#EFE8E3', overflow: 'hidden' },
-  sleepRange: { position: 'absolute', top: 0, bottom: 0, borderRadius: 4, backgroundColor: '#5C5F86' },
-  classText: { fontSize: 12, lineHeight: 16, color: '#727489' },
-  dim: { flex: 1, backgroundColor: 'rgba(31,33,48,0.38)' },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 10,
-    paddingBottom: 24,
-  },
-  handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#CCCCD4' },
-  sheetTitle: {
-    marginTop: 16,
-    marginHorizontal: 20,
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '700',
-    color: '#2A2C3E',
-  },
-  sheetBody: { padding: 16, gap: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { flex: 1, fontSize: 14, color: C.text },
-  goal: { fontSize: 16, lineHeight: 19, fontWeight: '700', color: C.text },
-  pickerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(31,33,48,0.38)' },
-  picker: { width: 260, alignItems: 'center', gap: 8, paddingVertical: 20, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  pickerTitle: { fontSize: 16, lineHeight: 19, fontWeight: '700', color: '#2A2C3E' },
-  done: { height: 48, borderRadius: 12, paddingVertical: 0 },
+  alignEnd: { alignItems: 'flex-end' },
+  timeLabel: { fontSize: 12, lineHeight: 16, color: C.inkSoft },
+  time: { fontSize: 28, lineHeight: 36, fontWeight: '500', color: C.ink },
+  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  range: { position: 'absolute', top: 0, bottom: 0, borderRadius: 4 },
+  basis: { fontSize: 12, lineHeight: 16, color: C.inkFaint },
 });
