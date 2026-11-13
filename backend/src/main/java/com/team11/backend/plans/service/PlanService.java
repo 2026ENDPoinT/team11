@@ -13,9 +13,12 @@ import com.team11.backend.events.dto.EventView;
 import com.team11.backend.events.repository.EventRepository;
 import com.team11.backend.plans.domain.FirstEventKind;
 import com.team11.backend.plans.domain.Plan;
+import com.team11.backend.plans.domain.PlanFeedback;
 import com.team11.backend.plans.domain.PlanMode;
 import com.team11.backend.plans.domain.PlanStatus;
+import com.team11.backend.plans.dto.PlanFeedbackRequest;
 import com.team11.backend.plans.dto.PlanView;
+import com.team11.backend.plans.repository.PlanFeedbackRepository;
 import com.team11.backend.plans.repository.PlanRepository;
 import com.team11.backend.timetable.config.SemesterProperties;
 import com.team11.backend.timetable.domain.DayOfWeek;
@@ -46,16 +49,18 @@ public class PlanService {
     private static final int EXAM_EVE_SLEEP_BONUS_MIN = 30;
 
     private final PlanRepository planRepository;
+    private final PlanFeedbackRepository planFeedbackRepository;
     private final UserRepository userRepository;
     private final TimetableEntryRepository timetableEntryRepository;
     private final EventRepository eventRepository;
     private final SemesterProperties semesterProperties;
     private final AiClient aiClient;
 
-    public PlanService(PlanRepository planRepository, UserRepository userRepository,
-                        TimetableEntryRepository timetableEntryRepository, EventRepository eventRepository,
-                        SemesterProperties semesterProperties, AiClient aiClient) {
+    public PlanService(PlanRepository planRepository, PlanFeedbackRepository planFeedbackRepository,
+                        UserRepository userRepository, TimetableEntryRepository timetableEntryRepository,
+                        EventRepository eventRepository, SemesterProperties semesterProperties, AiClient aiClient) {
         this.planRepository = planRepository;
+        this.planFeedbackRepository = planFeedbackRepository;
         this.userRepository = userRepository;
         this.timetableEntryRepository = timetableEntryRepository;
         this.eventRepository = eventRepository;
@@ -80,6 +85,20 @@ public class PlanService {
         Plan plan = planRepository.findByUserIdAndTargetDateAndStatus(userId, date, PlanStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(ErrorCode.PLAN_NOT_FOUND));
         return PlanView.from(plan);
+    }
+
+    /** PLAN-06. 같은 플랜에 다시 보내면 마지막 값으로 덮어쓴다. */
+    public void submitFeedback(Long userId, Long planId, PlanFeedbackRequest request) {
+        Plan plan = planRepository.findById(planId).orElseThrow(() -> new ApiException(ErrorCode.PLAN_NOT_FOUND));
+        if (!plan.isOwnedBy(userId)) {
+            throw new ApiException(ErrorCode.AUTH_FORBIDDEN);
+        }
+
+        planFeedbackRepository.findById(planId)
+                .ifPresentOrElse(
+                        existing -> existing.update(request.rating(), request.followed(), request.reason()),
+                        () -> planFeedbackRepository.save(
+                                new PlanFeedback(planId, request.rating(), request.followed(), request.reason())));
     }
 
     private Plan generateAndSave(User user, LocalDate targetDate, OffsetDateTime now) {

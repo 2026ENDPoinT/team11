@@ -1,13 +1,18 @@
 package com.team11.backend.plans.controller;
 
 import com.team11.backend.common.ApiResponse;
+import com.team11.backend.plans.dto.PlanFeedbackRequest;
 import com.team11.backend.plans.dto.PlanView;
 import com.team11.backend.plans.service.PlanService;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,5 +37,12 @@ public class PlanController {
             @AuthenticationPrincipal Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(ApiResponse.success(planService.getPlanByDate(userId, date)));
+    }
+
+    @PostMapping("/plans/{planId}/feedback")
+    public ResponseEntity<Void> submitPlanFeedback(@AuthenticationPrincipal Long userId, @PathVariable Long planId,
+                                                     @Valid @RequestBody PlanFeedbackRequest request) {
+        planService.submitFeedback(userId, planId, request);
+        return ResponseEntity.noContent().build();
     }
 }

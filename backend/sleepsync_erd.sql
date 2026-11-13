@@ -14,10 +14,12 @@
 --                   Logs (sleep_logs, prep_logs) — V6
 --                   Devices / Notifications (devices, notifications) — V7
 --                   Logs 확장: 웨어러블(애플워치/갤럭시워치) 수면 단계 (sleep_stages) — V8
+--                   Plans 확장: 플랜 피드백(PLAN-06, plan_feedbacks) — V10
 -- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
 -- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
--- 나머지 도메인(Exam, Stats, Tips, Sync)은 전부 2차(CLAUDE.md §10),
--- Calendar(월간/하루 요약)는 MVP인데 누락된 상태로 다음 작업 예정.
+-- Tips도 테이블 없이 코드에 하드코딩된 고정 문구만 씀(홈 캐릭터 말풍선용, CLAUDE.md §10 참고).
+-- 나머지 도메인(Stats 일부, Sync 나머지)은 전부 2차(CLAUDE.md §10). V9는 별도 브랜치(Exam
+-- 도메인, backend/exam-tips)에서 쓰는 중이라 이 파일 기준으로는 비어 있다가 머지되면 채워짐.
 
 -- =====================================================================
 -- Part 1. 테이블
@@ -236,6 +238,19 @@ CREATE TABLE sleep_stages (
     end_at       TIMESTAMPTZ NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_sleep_stages_time_range CHECK (end_at > start_at)
+);
+
+-- V10__plan_feedback.sql -----------------------------------------------------
+-- PLAN-06 플랜 피드백. 매일 앱을 처음 열 때 전날 플랜이 어땠는지 물어보는 용도(사용자 요청,
+-- 2026-11-13). 플랜 하나당 한 건(덮어쓰기)이라 plan_id를 PK로 둔다.
+
+CREATE TABLE plan_feedbacks (
+    plan_id    BIGINT PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
+    rating     VARCHAR(10) NOT NULL,
+    followed   BOOLEAN,
+    reason     VARCHAR(10),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- =====================================================================
