@@ -1,13 +1,14 @@
 package com.team11.backend;
 
-import static org.hamcrest.Matchers.hasSize;
+import static com.team11.backend.ApiTestSupport.bearer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,124 +23,83 @@ import org.springframework.test.web.servlet.MockMvc;
 class EventControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
-
-    private String signupAndLogin(String loginId) throws Exception {
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "loginId": "%s", "password": "P@ssw0rd1", "nickname": "%s",
-                                  "consents": [
-                                    { "type": "TERMS", "agreed": true },
-                                    { "type": "PRIVACY", "agreed": true }
-                                  ]
-                                }
-                                """.formatted(loginId, loginId)))
-                .andExpect(status().isCreated());
-
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "loginId": "%s", "password": "P@ssw0rd1" }
-                                """.formatted(loginId)))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.accessToken");
-    }
+    MockMvc mockMvc;
 
     @Test
-    void event_create_list_get_update_delete() throws Exception {
-        String token = signupAndLogin("evuser1");
+    void crud_rangeQuery_andMultiDayBand() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "evcrud0001");
 
-        String createResponse = mockMvc.perform(post("/api/v1/events").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "type": "PERSONAL", "title": "동기 술자리",
-                                  "startAt": "2026-11-13T19:00:00+09:00", "endAt": "2026-11-13T23:00:00+09:00",
-                                  "tag": "DRINKING", "note": "2차 갈 수도" }
+        String exam = mockMvc.perform(post("/api/v1/events").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "title": "자료구조 중간고사", "type": "EXAM",
+                                  "startAt": "2026-11-18T09:00:00+09:00", "endAt": "2026-11-18T10:00:00+09:00" }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.event.title").value("동기 술자리"))
-                .andExpect(jsonPath("$.data.event.repeat.freq").value("NONE"))
-                .andExpect(jsonPath("$.data.affectedPlans", hasSize(0)))
+                .andExpect(jsonPath("$.data.startAt").value("2026-11-18T09:00:00+09:00")) // 오프셋 유지
+                .andExpect(jsonPath("$.data.allDay").value(false))
                 .andReturn().getResponse().getContentAsString();
-        Integer eventId = com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.event.eventId");
+        int examId = JsonPath.read(exam, "$.data.eventId");
 
-        mockMvc.perform(get("/api/v1/events").param("from", "2026-11-09").param("to", "2026-11-15")
-                        .header("Authorization", "Bearer " + token))
+        // 다일 종일 밴드(수업철회기간)
+        mockMvc.perform(post("/api/v1/events").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "title": "수업철회기간", "type": "ETC", "allDay": true,
+                                  "startAt": "2026-11-20T00:00:00+09:00", "endAt": "2026-11-24T00:00:00+09:00" }
+                                """))
+                .andExpect(status().isCreated());
+
+        // 밴드 중간 날짜 하나만 조회해도 포함
+        mockMvc.perform(get("/api/v1/events").with(bearer(token)).param("from", "2026-11-22").param("to", "2026-11-22"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.events", hasSize(1)));
+                .andExpect(jsonPath("$.data.events.length()").value(1))
+                .andExpect(jsonPath("$.data.events[0].title").value("수업철회기간"));
 
-        // 범위 밖이면 안 보임
-        mockMvc.perform(get("/api/v1/events").param("from", "2026-12-01").param("to", "2026-12-07")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.data.events", hasSize(0)));
-
-        mockMvc.perform(get("/api/v1/events/" + eventId).header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/events").with(bearer(token)).param("from", "2026-11-01").param("to", "2026-11-30"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.tag").value("DRINKING"));
+                .andExpect(jsonPath("$.data.events.length()").value(2))
+                .andExpect(jsonPath("$.data.events[0].eventId").value(examId));
 
-        mockMvc.perform(patch("/api/v1/events/" + eventId).header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "endAt": "2026-11-13T22:00:00+09:00", "note": "1차만" }
+        mockMvc.perform(get("/api/v1/events").with(bearer(token)).param("from", "2026-01-01").param("to", "2026-12-31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("DATE_RANGE_TOO_LARGE"));
+
+        mockMvc.perform(put("/api/v1/events/" + examId).with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "title": "자료구조 중간고사(변경)", "type": "EXAM",
+                                  "startAt": "2026-11-18T10:00:00+09:00", "endAt": "2026-11-18T09:00:00+09:00" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TIME_RANGE_INVALID"));
+
+        mockMvc.perform(put("/api/v1/events/" + examId).with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "title": "자료구조 중간고사(변경)", "type": "EXAM",
+                                  "startAt": "2026-11-18T10:00:00+09:00", "endAt": "2026-11-18T11:00:00+09:00" }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.event.note").value("1차만"));
+                .andExpect(jsonPath("$.data.title").value("자료구조 중간고사(변경)"));
 
-        mockMvc.perform(delete("/api/v1/events/" + eventId).header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/events/" + examId).with(bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.startAt").value("2026-11-18T10:00:00+09:00"));
 
-        mockMvc.perform(get("/api/v1/events/" + eventId).header("Authorization", "Bearer " + token))
+        mockMvc.perform(delete("/api/v1/events/" + examId).with(bearer(token))).andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/events/" + examId).with(bearer(token)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("EVENT_NOT_FOUND"));
     }
 
     @Test
-    void getEvents_withRangeOver93Days_returnsDateRangeTooLarge() throws Exception {
-        String token = signupAndLogin("evrange1");
-
-        mockMvc.perform(get("/api/v1/events").param("from", "2026-01-01").param("to", "2026-12-31")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("DATE_RANGE_TOO_LARGE"));
-    }
-
-    @Test
-    void updateEvent_ofOtherUser_returnsForbidden() throws Exception {
-        String ownerToken = signupAndLogin("evowner1");
-        String otherToken = signupAndLogin("evother1");
-
-        String createResponse = mockMvc.perform(post("/api/v1/events").header("Authorization", "Bearer " + ownerToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "type": "EXAM", "title": "중간고사", "startAt": "2026-11-12T10:00:00+09:00" }
+    void otherUsersEvent_isForbidden() throws Exception {
+        String owner = ApiTestSupport.onboardedUser(mockMvc, "evowner001");
+        String other = ApiTestSupport.onboardedUser(mockMvc, "evother001");
+        String created = mockMvc.perform(post("/api/v1/events").with(bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "title": "약속", "type": "PERSONAL", "startAt": "2026-11-18T19:00:00+09:00" }
                                 """))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        Integer eventId = com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.event.eventId");
-
-        mockMvc.perform(patch("/api/v1/events/" + eventId).header("Authorization", "Bearer " + otherToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "note": "해킹시도" }
-                                """))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("AUTH_FORBIDDEN"));
-    }
-
-    @Test
-    void createEvent_withEndAtBeforeStartAt_returnsTimeRangeInvalid() throws Exception {
-        String token = signupAndLogin("evtimebad1");
-
-        mockMvc.perform(post("/api/v1/events").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "type": "PERSONAL", "title": "시간역전", "startAt": "2026-11-13T19:00:00+09:00",
-                                  "endAt": "2026-11-13T18:00:00+09:00" }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("TIME_RANGE_INVALID"));
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        int eventId = JsonPath.read(created, "$.data.eventId");
+        mockMvc.perform(get("/api/v1/events/" + eventId).with(bearer(other)))
+                .andExpect(status().isForbidden());
     }
 }

@@ -1,10 +1,9 @@
 package com.team11.backend;
 
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.nullValue;
+import static com.team11.backend.ApiTestSupport.PASSWORD;
+import static com.team11.backend.ApiTestSupport.bearer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,204 +23,142 @@ import org.springframework.test.web.servlet.MockMvc;
 class UserControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    MockMvc mockMvc;
 
-    private String signupAndLogin(String loginId) throws Exception {
-        String signupBody = """
-                {
-                  "loginId": "%s",
-                  "password": "P@ssw0rd1",
-                  "nickname": "%s",
-                  "consents": [
-                    { "type": "TERMS", "agreed": true },
-                    { "type": "PRIVACY", "agreed": true },
-                    { "type": "HEALTH_DATA", "agreed": true }
-                  ]
-                }
-                """.formatted(loginId, loginId);
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(signupBody))
-                .andExpect(status().isCreated());
+    @Test
+    void onboarding_requiresAllRequiredConsents() throws Exception {
+        String token = ApiTestSupport.signupAndLogin(mockMvc, "onbconsent1");
+        mockMvc.perform(post("/api/v1/users/me/onboarding").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {
+                                  "consents": [ { "type": "TERMS", "agreed": true }, { "type": "PRIVACY", "agreed": true } ],
+                                  "sleepNeedMin": 465, "commuteMin": 40, "prepMin": 50
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CONSENT_REQUIRED"))
+                .andExpect(jsonPath("$.error.details.missing").value("MEDICAL_DISCLAIMER"));
 
-        String loginBody = """
-                { "loginId": "%s", "password": "P@ssw0rd1" }
-                """.formatted(loginId);
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginBody))
+        mockMvc.perform(get("/api/v1/users/me").with(bearer(token)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.accessToken");
+                .andExpect(jsonPath("$.data.onboardingDone").value(false));
     }
 
     @Test
-    void profile_get_and_patch() throws Exception {
-        String token = signupAndLogin("userprofile1");
-
-        mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
+    void onboarding_appliesSettingsConsentsAndNotification() throws Exception {
+        String token = ApiTestSupport.signupAndLogin(mockMvc, "onbhappy01");
+        mockMvc.perform(post("/api/v1/users/me/onboarding").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content(ApiTestSupport.ONBOARDING_BODY))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nickname").value("userprofile1"))
+                .andExpect(jsonPath("$.data.onboardingDone").value(true))
                 .andExpect(jsonPath("$.data.settings.sleepNeedMin").value(465))
-                .andExpect(jsonPath("$.data.character.characterId").value(1));
+                .andExpect(jsonPath("$.data.settings.commuteMin").value(40))
+                .andExpect(jsonPath("$.data.settings.prepMin").value(50))
+                .andExpect(jsonPath("$.data.settings.examPrepDays").value(3))
+                .andExpect(jsonPath("$.data.settings.focusMinInBedMin").value(360));
 
-        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "chronotype": "EVENING", "commuteMin": 45 }
+        mockMvc.perform(get("/api/v1/users/me/consents").with(bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.consents.length()").value(4))
+                .andExpect(jsonPath("$.data.consents[?(@.type=='NOTIFICATION')].agreed").value(true));
+
+        mockMvc.perform(get("/api/v1/users/me/notification-settings").with(bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.wakeAlarmEnabled").value(true))
+                .andExpect(jsonPath("$.data.bedtimeLeadMin").value(30));
+    }
+
+    @Test
+    void settings_partialUpdate_andCrossValidation() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "settings001");
+
+        mockMvc.perform(put("/api/v1/users/me/settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "focusMinInBedMin": 270, "focusMaxInBedMin": 360 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.settings.chronotype").value("EVENING"))
-                .andExpect(jsonPath("$.data.settings.commuteMin").value(45));
+                .andExpect(jsonPath("$.data.focusMinInBedMin").value(270))
+                .andExpect(jsonPath("$.data.focusMaxInBedMin").value(360))
+                .andExpect(jsonPath("$.data.sleepNeedMin").value(465)); // 안 보낸 값은 유지
 
-        // 범위를 벗어난 값은 VALIDATION_FAILED
-        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "sleepNeedMin": 100 }
+        mockMvc.perform(put("/api/v1/users/me/settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "focusMinInBedMin": 400 }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("focusMinInBedMin"));
+
+        mockMvc.perform(put("/api/v1/users/me/settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/api/v1/users/me/settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "sleepNeedMin": 700 }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
     }
 
     @Test
-    void profile_patch_withDuplicateNickname_returnsNicknameDuplicated() throws Exception {
-        signupAndLogin("owner1");
-        String token = signupAndLogin("other1");
-
-        mockMvc.perform(patch("/api/v1/users/me").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "nickname": "owner1" }
-                                """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("NICKNAME_DUPLICATED"));
-    }
-
-    @Test
-    void onboarding_computesChronotypeAndSuggestedSettings_perSpecExample() throws Exception {
-        String token = signupAndLogin("onboard1");
-
-        mockMvc.perform(post("/api/v1/users/me/onboarding").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "weekdayBedTime": "01:00", "weekdayWakeTime": "07:30",
-                                  "freedayBedTime": "02:00", "freedayWakeTime": "10:00",
-                                  "sleepLatencyMin": 15, "commuteMin": 40, "prepMin": 55, "caffeinePerDay": 2
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.chronotype").value("EVENING"))
-                .andExpect(jsonPath("$.data.midSleepFreeday").value("06:00"))
-                .andExpect(jsonPath("$.data.suggestedSettings.sleepNeedMin").value(480))
-                .andExpect(jsonPath("$.data.onboardingDone").value(true));
-
-        mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.data.onboardingDone").value(true))
-                .andExpect(jsonPath("$.data.settings.sleepNeedMin").value(480));
-    }
-
-    @Test
-    void notificationSettings_get_default_and_put() throws Exception {
-        String token = signupAndLogin("notif1");
-
-        mockMvc.perform(get("/api/v1/users/me/notification-settings").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.enabled").value(true))
-                .andExpect(jsonPath("$.data.windDownMinBefore").value(60))
-                .andExpect(jsonPath("$.data.quietHours.start").value("00:30"));
-
-        mockMvc.perform(put("/api/v1/users/me/notification-settings").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "enabled": true, "windDownMinBefore": 30, "bedReminderEnabled": true,
-                                  "caffeineCutoffEnabled": false, "napReminderEnabled": true,
-                                  "streakRiskEnabled": true, "weeklyReportEnabled": true,
-                                  "quietHours": null
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.windDownMinBefore").value(30))
-                .andExpect(jsonPath("$.data.caffeineCutoffEnabled").value(false))
-                .andExpect(jsonPath("$.data.quietHours").value(nullValue()));
-    }
-
-    @Test
-    void consents_defaultFour_thenRevokeHealthData_thenTermsIsNotRevocable() throws Exception {
-        String token = signupAndLogin("consent1");
-
-        mockMvc.perform(get("/api/v1/users/me/consents").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.consents", hasSize(4)));
-
-        mockMvc.perform(put("/api/v1/users/me/consents").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "consents": [ { "type": "HEALTH_DATA", "agreed": false } ] }
-                                """))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(put("/api/v1/users/me/consents").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+    void consents_requiredCannotBeRevoked_optionalCan() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "consents001");
+        mockMvc.perform(put("/api/v1/users/me/consents").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
                                 { "consents": [ { "type": "TERMS", "agreed": false } ] }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("CONSENT_NOT_REVOCABLE"));
+
+        mockMvc.perform(put("/api/v1/users/me/consents").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "consents": [ { "type": "NOTIFICATION", "agreed": false } ] }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.consents[?(@.type=='NOTIFICATION')].agreed").value(false));
     }
 
     @Test
-    void characters_list_select_and_selectMissing() throws Exception {
-        String token = signupAndLogin("char1");
-
-        mockMvc.perform(get("/api/v1/characters").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.characters", hasSize(2)))
-                .andExpect(jsonPath("$.data.selectedCharacterId").value(1));
-
-        mockMvc.perform(put("/api/v1/users/me/character").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "characterId": 2 }
+    void notificationSettings_leadMustBeOneOfOptions() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "notiset0001");
+        mockMvc.perform(put("/api/v1/users/me/notification-settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "wakeAlarmEnabled": true, "bedtimeAlarmEnabled": false, "bedtimeLeadMin": 45 }
+                                """))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/v1/users/me/notification-settings").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "wakeAlarmEnabled": true, "bedtimeAlarmEnabled": false, "bedtimeLeadMin": 60 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.character.characterId").value(2));
-
-        mockMvc.perform(put("/api/v1/users/me/character").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "characterId": 999 }
-                                """))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("CHARACTER_NOT_FOUND"));
+                .andExpect(jsonPath("$.data.bedtimeAlarmEnabled").value(false))
+                .andExpect(jsonPath("$.data.bedtimeLeadMin").value(60));
     }
 
     @Test
-    void deleteAccount_wrongPasswordThenSuccess() throws Exception {
-        String loginId = "withdraw1";
-        String token = signupAndLogin(loginId);
-
-        mockMvc.perform(delete("/api/v1/users/me").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "password": "wrong1234" }
+    void rename_andDeleteAccount() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "deleteme001");
+        mockMvc.perform(put("/api/v1/users/me").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "name": "새이름" }
                                 """))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("새이름"));
 
-        mockMvc.perform(delete("/api/v1/users/me").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "password": "P@ssw0rd1" }
+        mockMvc.perform(delete("/api/v1/users/me").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "password": "wrongpass1" }
                                 """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_CREDENTIALS"));
+
+        mockMvc.perform(delete("/api/v1/users/me").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "password": "%s" }
+                                """.formatted(PASSWORD)))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "loginId": "%s", "password": "P@ssw0rd1" }
-                                """.formatted(loginId)))
+        mockMvc.perform(get("/api/v1/users/me").with(bearer(token)))
                 .andExpect(status().isUnauthorized());
     }
 }

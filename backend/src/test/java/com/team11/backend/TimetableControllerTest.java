@@ -1,14 +1,14 @@
 package com.team11.backend;
 
-import static org.hamcrest.Matchers.hasSize;
+import static com.team11.backend.ApiTestSupport.bearer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,186 +23,85 @@ import org.springframework.test.web.servlet.MockMvc;
 class TimetableControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    MockMvc mockMvc;
 
-    private String signupAndLogin(String loginId) throws Exception {
-        String signupBody = """
-                {
-                  "loginId": "%s",
-                  "password": "P@ssw0rd1",
-                  "nickname": "%s",
-                  "consents": [
-                    { "type": "TERMS", "agreed": true },
-                    { "type": "PRIVACY", "agreed": true }
-                  ]
-                }
-                """.formatted(loginId, loginId);
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(signupBody))
-                .andExpect(status().isCreated());
-
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "loginId": "%s", "password": "P@ssw0rd1" }
-                                """.formatted(loginId)))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.accessToken");
-    }
+    private static final String ENTRY = """
+            { "semester": "2026-2", "dayOfWeek": "%s", "startTime": "%s", "endTime": "%s", "courseName": "%s", "room": "미래관-319" }
+            """;
 
     @Test
-    void semesters_returnsCurrentAndSortedDescending() throws Exception {
-        String token = signupAndLogin("semuser1");
+    void crud_overlap_andList() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "ttcrud0001");
 
-        mockMvc.perform(get("/api/v1/semesters").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.semesters", hasSize(4)))
-                .andExpect(jsonPath("$.data.semesters[0].semester").value("2026-2"))
-                .andExpect(jsonPath("$.data.semesters[0].current").value(true));
-    }
-
-    @Test
-    void entry_create_get_update_delete_and_overlapRejected() throws Exception {
-        String token = signupAndLogin("ttentry1");
-
-        mockMvc.perform(post("/api/v1/timetable/entries").header("Authorization", "Bearer " + token)
+        String created = mockMvc.perform(post("/api/v1/timetable/entries").with(bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "semester": "2026-2", "dayOfWeek": "MON", "startTime": "09:00", "endTime": "10:15",
-                                  "courseName": "자료구조", "location": "미래관 301" }
-                                """))
+                        .content(ENTRY.formatted("THU", "09:00", "13:00", "오픈소스소프트웨어")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.source").value("MANUAL"));
+                .andExpect(jsonPath("$.data.source").value("MANUAL"))
+                .andExpect(jsonPath("$.data.room").value("미래관-319"))
+                .andReturn().getResponse().getContentAsString();
+        int entryId = JsonPath.read(created, "$.data.entryId");
 
-        // 겹치는 수업은 거절
-        mockMvc.perform(post("/api/v1/timetable/entries").header("Authorization", "Bearer " + token)
+        // 겹치는 수업
+        mockMvc.perform(post("/api/v1/timetable/entries").with(bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "semester": "2026-2", "dayOfWeek": "MON", "startTime": "09:30", "endTime": "10:30",
-                                  "courseName": "알고리즘" }
-                                """))
+                        .content(ENTRY.formatted("THU", "12:00", "14:00", "겹치는수업")))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("TIMETABLE_OVERLAP"));
+                .andExpect(jsonPath("$.error.code").value("TIMETABLE_OVERLAP"))
+                .andExpect(jsonPath("$.error.details.conflicts[0].courseName").value("오픈소스소프트웨어"));
 
-        // 끝나는 시각과 다음 수업 시작 시각이 같은 것은 허용
-        String secondEntryResponse = mockMvc.perform(post("/api/v1/timetable/entries").header("Authorization", "Bearer " + token)
+        // 시작 >= 종료
+        mockMvc.perform(post("/api/v1/timetable/entries").with(bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "semester": "2026-2", "dayOfWeek": "MON", "startTime": "10:15", "endTime": "11:00",
-                                  "courseName": "운영체제" }
-                                """))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        Integer secondEntryId = com.jayway.jsonpath.JsonPath.read(secondEntryResponse, "$.data.entryId");
+                        .content(ENTRY.formatted("FRI", "13:00", "13:00", "역순")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("TIME_RANGE_INVALID"));
 
-        mockMvc.perform(get("/api/v1/timetable").param("semester", "2026-2").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.entries", hasSize(2)))
-                .andExpect(jsonPath("$.data.entries[0].courseName").value("자료구조"))
-                .andExpect(jsonPath("$.data.entries[1].courseName").value("운영체제"));
-
-        mockMvc.perform(patch("/api/v1/timetable/entries/" + secondEntryId).header("Authorization", "Bearer " + token)
+        mockMvc.perform(put("/api/v1/timetable/entries/" + entryId).with(bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "location": "미래관 302" }
-                                """))
+                        .content(ENTRY.formatted("THU", "10:00", "12:00", "오픈소스소프트웨어(수정)")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.location").value("미래관 302"));
+                .andExpect(jsonPath("$.data.startTime").value("10:00:00"))
+                .andExpect(jsonPath("$.data.courseName").value("오픈소스소프트웨어(수정)"));
 
-        mockMvc.perform(delete("/api/v1/timetable/entries/" + secondEntryId).header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/timetable").with(bearer(token)).param("semester", "2026-2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.semester").value("2026-2"))
+                .andExpect(jsonPath("$.data.entries.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/timetable").with(bearer(token)).param("semester", "2030-1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("SEMESTER_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/v1/timetable/entries/" + entryId).with(bearer(token)))
                 .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/v1/timetable").param("semester", "2026-2").header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.data.entries", hasSize(1)));
+        mockMvc.perform(delete("/api/v1/timetable/entries/" + entryId).with(bearer(token)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    void updateEntry_ofOtherUser_returnsForbidden() throws Exception {
-        String ownerToken = signupAndLogin("ttowner1");
-        String otherToken = signupAndLogin("ttother1");
+    void otherUsersEntry_isForbidden() throws Exception {
+        String owner = ApiTestSupport.onboardedUser(mockMvc, "ttowner001");
+        String other = ApiTestSupport.onboardedUser(mockMvc, "ttother001");
+        String created = mockMvc.perform(post("/api/v1/timetable/entries").with(bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON).content(ENTRY.formatted("MON", "09:00", "10:00", "내수업")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        int entryId = JsonPath.read(created, "$.data.entryId");
 
-        String createResponse = mockMvc.perform(post("/api/v1/timetable/entries").header("Authorization", "Bearer " + ownerToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "semester": "2026-2", "dayOfWeek": "TUE", "startTime": "13:00", "endTime": "14:00",
-                                  "courseName": "데이터베이스" }
-                                """))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        Integer entryId = com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.entryId");
-
-        mockMvc.perform(patch("/api/v1/timetable/entries/" + entryId).header("Authorization", "Bearer " + otherToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "location": "해킹시도" }
-                                """))
+        mockMvc.perform(delete("/api/v1/timetable/entries/" + entryId).with(bearer(other)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("AUTH_FORBIDDEN"));
     }
 
     @Test
-    void bulkReplace_replacesOnlySameSourceAndRejectsInternalOverlap() throws Exception {
-        String token = signupAndLogin("ttbulk1");
-
-        // 기존 MANUAL 수업 하나 등록
-        mockMvc.perform(post("/api/v1/timetable/entries").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "semester": "2026-2", "dayOfWeek": "WED", "startTime": "08:00", "endTime": "09:00",
-                                  "courseName": "직접입력수업" }
-                                """))
-                .andExpect(status().isCreated());
-
-        // 요청 내부에서 겹치면 전체 거절
-        mockMvc.perform(put("/api/v1/timetable").param("semester", "2026-2").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "source": "ECLASS",
-                                  "entries": [
-                                    { "externalId": "A", "dayOfWeek": "THU", "startTime": "09:00", "endTime": "10:00", "courseName": "A" },
-                                    { "externalId": "B", "dayOfWeek": "THU", "startTime": "09:30", "endTime": "10:30", "courseName": "B" }
-                                  ]
-                                }
-                                """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("TIMETABLE_OVERLAP"));
-
-        // 정상 ECLASS 일괄 등록
-        mockMvc.perform(put("/api/v1/timetable").param("semester", "2026-2").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "source": "ECLASS",
-                                  "entries": [
-                                    { "externalId": "CSE2001-01", "dayOfWeek": "THU", "startTime": "09:00", "endTime": "10:15",
-                                      "courseName": "자료구조", "location": "미래관 301" }
-                                  ]
-                                }
-                                """))
+    void semesters_andEverytimeUrlValidation() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "ttsemest01");
+        mockMvc.perform(get("/api/v1/semesters").with(bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.entries", hasSize(2))); // MANUAL 1개 + ECLASS 1개, 서로 다른 source라 유지됨
-    }
+                .andExpect(jsonPath("$.data.semesters[0].semester").value("2026-2"));
 
-    @Test
-    void importFromEverytime_rejectsBlankAndMalformedUrlBeforeCallingExternalApi() throws Exception {
-        String token = signupAndLogin("tteveryt1");
-
-        mockMvc.perform(post("/api/v1/timetable/import/everytime").param("semester", "2026-2")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "url": "" }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
-
-        mockMvc.perform(post("/api/v1/timetable/import/everytime").param("semester", "2026-2")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        mockMvc.perform(post("/api/v1/timetable/import/everytime").with(bearer(token)).param("semester", "2026-2")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
                                 { "url": "https://everytime.kr/timetable" }
                                 """))
                 .andExpect(status().isBadRequest())

@@ -1,6 +1,5 @@
 package com.team11.backend.timetable.domain;
 
-import com.team11.backend.common.domain.Source;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -34,7 +33,7 @@ public class TimetableEntry {
     private LocalTime startTime;
     private LocalTime endTime;
     private String courseName;
-    private String location;
+    private String room;
 
     @Enumerated(EnumType.STRING)
     private Source source;
@@ -48,14 +47,14 @@ public class TimetableEntry {
     private Instant updatedAt;
 
     public TimetableEntry(Long userId, String semester, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime,
-                           String courseName, String location, Source source, String externalId) {
+                           String courseName, String room, Source source, String externalId) {
         this.userId = userId;
         this.semester = semester;
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
         this.courseName = courseName;
-        this.location = location;
+        this.room = room;
         this.source = source;
         this.externalId = externalId;
     }
@@ -64,16 +63,13 @@ public class TimetableEntry {
         return this.userId.equals(userId);
     }
 
-    public void updateLocation(String location) {
-        this.location = location;
-    }
-
-    public void updateAll(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, String courseName,
-                           String location) {
+    public void update(String semester, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, String courseName,
+                        String room) {
+        this.semester = semester;
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
         this.courseName = courseName;
-        this.location = location;
+        this.room = room;
     }
 }

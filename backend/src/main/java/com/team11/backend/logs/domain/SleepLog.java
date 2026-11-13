@@ -1,8 +1,7 @@
 package com.team11.backend.logs.domain;
 
+import com.team11.backend.common.Kst;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -16,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+/** 수동 입력 전용 수면 기록. date = KST 기상일, 하루 1건. durationMin은 취침~기상 간격(침대 체류). */
 @Entity
 @Table(name = "sleep_logs")
 @Getter
@@ -30,14 +30,9 @@ public class SleepLog {
     private LocalDate date;
     private OffsetDateTime bedAt;
     private OffsetDateTime wakeAt;
-    private Integer durationMin;
+    private int durationMin;
     private Integer quality;
-
-    @Enumerated(EnumType.STRING)
-    private SleepLogStatus status;
-
-    @Enumerated(EnumType.STRING)
-    private SleepLogSource source;
+    private String memo;
 
     @CreationTimestamp
     private Instant createdAt;
@@ -45,41 +40,25 @@ public class SleepLog {
     @UpdateTimestamp
     private Instant updatedAt;
 
-    /** LOG-01: 열린 기록으로 시작. */
-    public SleepLog(Long userId, OffsetDateTime bedAt, SleepLogSource source) {
+    public SleepLog(Long userId, OffsetDateTime bedAt, OffsetDateTime wakeAt, Integer quality, String memo) {
         this.userId = userId;
-        this.bedAt = bedAt;
-        this.source = source;
-        this.status = SleepLogStatus.OPEN;
+        update(bedAt, wakeAt, quality, memo);
     }
 
-    /** LOG-04: 처음부터 닫힌 기록으로 직접 입력. */
-    public SleepLog(Long userId, OffsetDateTime bedAt, OffsetDateTime wakeAt, Integer quality, LocalDate date,
-                     SleepLogSource source) {
-        this.userId = userId;
-        this.bedAt = bedAt;
-        this.source = source;
-        close(wakeAt, quality, date);
+    public static LocalDate dateFor(OffsetDateTime wakeAt) {
+        return Kst.dateOf(wakeAt);
     }
 
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
     }
 
-    public void close(OffsetDateTime wakeAt, Integer quality, LocalDate date) {
-        this.wakeAt = wakeAt;
-        this.quality = quality;
-        this.date = date;
-        this.durationMin = (int) Duration.between(bedAt, wakeAt).toMinutes();
-        this.status = SleepLogStatus.CLOSED;
-    }
-
-    public void update(OffsetDateTime bedAt, OffsetDateTime wakeAt, Integer quality, LocalDate date) {
+    public void update(OffsetDateTime bedAt, OffsetDateTime wakeAt, Integer quality, String memo) {
         this.bedAt = bedAt;
         this.wakeAt = wakeAt;
+        this.date = dateFor(wakeAt);
+        this.durationMin = (int) Duration.between(bedAt, wakeAt).toMinutes();
         this.quality = quality;
-        this.date = date;
-        this.durationMin = wakeAt == null ? null : (int) Duration.between(bedAt, wakeAt).toMinutes();
-        this.status = wakeAt == null ? SleepLogStatus.OPEN : SleepLogStatus.CLOSED;
+        this.memo = memo;
     }
 }

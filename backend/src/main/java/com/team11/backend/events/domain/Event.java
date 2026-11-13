@@ -1,6 +1,5 @@
 package com.team11.backend.events.domain;
 
-import com.team11.backend.common.domain.Source;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -26,24 +25,14 @@ public class Event {
     private Long id;
 
     private Long userId;
+    private String title;
 
     @Enumerated(EnumType.STRING)
     private EventType type;
 
-    private String title;
     private OffsetDateTime startAt;
     private OffsetDateTime endAt;
     private boolean allDay;
-
-    @Enumerated(EnumType.STRING)
-    private EventTag tag;
-
-    private String note;
-
-    @Enumerated(EnumType.STRING)
-    private Source source;
-
-    private String externalId;
 
     @CreationTimestamp
     private Instant createdAt;
@@ -51,37 +40,25 @@ public class Event {
     @UpdateTimestamp
     private Instant updatedAt;
 
-    public Event(Long userId, EventType type, String title, OffsetDateTime startAt, OffsetDateTime endAt,
-                 boolean allDay, EventTag tag, String note, Source source, String externalId) {
+    public Event(Long userId, String title, EventType type, OffsetDateTime startAt, OffsetDateTime endAt, boolean allDay) {
         this.userId = userId;
-        this.type = type;
-        this.title = title;
-        this.startAt = startAt;
-        this.endAt = endAt;
-        this.allDay = allDay;
-        this.tag = tag;
-        this.note = note;
-        this.source = source;
-        this.externalId = externalId;
+        update(title, type, startAt, endAt, allDay);
     }
 
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
     }
 
-    public void updateTagAndNote(EventTag tag, String note) {
-        this.tag = tag;
-        this.note = note;
-    }
-
-    public void updateAll(EventType type, String title, OffsetDateTime startAt, OffsetDateTime endAt, boolean allDay,
-                           EventTag tag, String note) {
-        this.type = type;
+    public void update(String title, EventType type, OffsetDateTime startAt, OffsetDateTime endAt, boolean allDay) {
         this.title = title;
+        this.type = type;
         this.startAt = startAt;
         this.endAt = endAt;
         this.allDay = allDay;
-        this.tag = tag;
-        this.note = note;
+    }
+
+    /** 끝 시각이 없으면 시작 시각을 끝으로 본다. */
+    public OffsetDateTime effectiveEndAt() {
+        return endAt != null ? endAt : startAt;
     }
 }

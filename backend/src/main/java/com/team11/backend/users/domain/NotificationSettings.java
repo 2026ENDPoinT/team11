@@ -3,10 +3,10 @@ package com.team11.backend.users.domain;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.LocalTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/** 설정 5-2 알림 화면. 가입 시 만들지 않고 처음 조회/수정할 때 기본값으로 생성(get-or-create). */
 @Entity
 @Table(name = "notification_settings")
 @Getter
@@ -16,32 +16,17 @@ public class NotificationSettings {
     @Id
     private Long userId;
 
-    private boolean enabled = true;
-    private int windDownMinBefore = 60;
-    private boolean bedReminderEnabled = true;
-    private boolean caffeineCutoffEnabled = true;
-    private boolean napReminderEnabled = true;
-    private boolean streakRiskEnabled = true;
-    private boolean weeklyReportEnabled = true;
-    private LocalTime quietHoursStart = LocalTime.of(0, 30);
-    private LocalTime quietHoursEnd = LocalTime.of(7, 0);
+    private boolean wakeAlarmEnabled = true;
+    private boolean bedtimeAlarmEnabled = true;
+    private int bedtimeLeadMin = 30;
 
     public NotificationSettings(Long userId) {
         this.userId = userId;
     }
 
-    public void update(boolean enabled, int windDownMinBefore, boolean bedReminderEnabled,
-                        boolean caffeineCutoffEnabled, boolean napReminderEnabled,
-                        boolean streakRiskEnabled, boolean weeklyReportEnabled,
-                        LocalTime quietHoursStart, LocalTime quietHoursEnd) {
-        this.enabled = enabled;
-        this.windDownMinBefore = windDownMinBefore;
-        this.bedReminderEnabled = bedReminderEnabled;
-        this.caffeineCutoffEnabled = caffeineCutoffEnabled;
-        this.napReminderEnabled = napReminderEnabled;
-        this.streakRiskEnabled = streakRiskEnabled;
-        this.weeklyReportEnabled = weeklyReportEnabled;
-        this.quietHoursStart = quietHoursStart;
-        this.quietHoursEnd = quietHoursEnd;
+    public void update(boolean wakeAlarmEnabled, boolean bedtimeAlarmEnabled, int bedtimeLeadMin) {
+        this.wakeAlarmEnabled = wakeAlarmEnabled;
+        this.bedtimeAlarmEnabled = bedtimeAlarmEnabled;
+        this.bedtimeLeadMin = bedtimeLeadMin;
     }
 }

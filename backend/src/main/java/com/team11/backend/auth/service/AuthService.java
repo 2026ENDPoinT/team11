@@ -1,13 +1,7 @@
 package com.team11.backend.auth.service;
 
 import com.team11.backend.auth.domain.RefreshToken;
-import com.team11.backend.users.domain.Character;
-import com.team11.backend.users.domain.Consent;
-import com.team11.backend.users.domain.ConsentType;
-import com.team11.backend.users.domain.User;
 import com.team11.backend.auth.dto.ChangePasswordRequest;
-import com.team11.backend.auth.dto.CheckLoginIdResponse;
-import com.team11.backend.auth.dto.ConsentItem;
 import com.team11.backend.auth.dto.LoginRequest;
 import com.team11.backend.auth.dto.LoginResponse;
 import com.team11.backend.auth.dto.LogoutRequest;
@@ -16,13 +10,11 @@ import com.team11.backend.auth.dto.SignupRequest;
 import com.team11.backend.auth.dto.SignupResponse;
 import com.team11.backend.auth.dto.TokenResponse;
 import com.team11.backend.auth.repository.RefreshTokenRepository;
-import com.team11.backend.users.repository.CharacterRepository;
-import com.team11.backend.users.repository.UserRepository;
 import com.team11.backend.common.ErrorCode;
-import com.team11.backend.common.FieldViolation;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.config.JwtTokenProvider;
-import com.team11.backend.devices.service.DeviceService;
+import com.team11.backend.users.domain.User;
+import com.team11.backend.users.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -31,9 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.EnumMap;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -43,45 +33,36 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthService {
 
-    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
-    private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(5);
+    public static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    public static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(5);
 
     private final UserRepository userRepository;
-    private final CharacterRepository characterRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final DeviceService deviceService;
 
-    public AuthService(UserRepository userRepository, CharacterRepository characterRepository,
-                        RefreshTokenRepository refreshTokenRepository, PasswordEncoder passwordEncoder,
-                        JwtTokenProvider jwtTokenProvider, DeviceService deviceService) {
+    public AuthService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
+                        PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
         this.userRepository = userRepository;
-        this.characterRepository = characterRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.deviceService = deviceService;
     }
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByLoginId(request.loginId())) {
             throw new ApiException(ErrorCode.USER_DUPLICATE_LOGIN_ID);
         }
-        Map<ConsentType, Boolean> agreedByType = parseConsents(request.consents());
-        if (!isAgreed(agreedByType, ConsentType.TERMS) || !isAgreed(agreedByType, ConsentType.PRIVACY)) {
-            throw new ApiException(ErrorCode.CONSENT_REQUIRED);
-        }
-
-        Character defaultCharacter = characterRepository.findFirstByActiveTrueOrderBySortOrderAsc().orElse(null);
-        User user = new User(request.loginId(), passwordEncoder.encode(request.password()), request.nickname(), defaultCharacter);
-        for (ConsentType type : ConsentType.values()) {
-            user.addConsent(new Consent(type, agreedByType.getOrDefault(type, false)));
-        }
-        userRepository.save(user);
-        return new SignupResponse(user.getId(), user.getLoginId(), user.getNickname());
+        User user = userRepository.save(new User(request.loginId(), passwordEncoder.encode(request.password()),
+                request.name().trim()));
+        return new SignupResponse(user.getId(), user.getLoginId(), user.getName());
     }
 
+    /**
+     * 아이디/비번 어느 쪽이 틀렸는지 숨긴다. 5회 연속 실패 시 5분 잠금(0-1 로그인 실패 화면).
+     * 실패 예외로 트랜잭션이 롤백되면 실패 횟수 증가가 사라지므로 ApiException은 롤백하지 않는다.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new ApiException(ErrorCode.AUTH_INVALID_CREDENTIALS));
@@ -91,7 +72,7 @@ public class AuthService {
             throw lockedException(user);
         }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            user.registerFailedLogin(now, MAX_FAILED_LOGIN_ATTEMPTS, now.plus(LOGIN_LOCK_DURATION));
+            user.registerFailedLogin(MAX_FAILED_LOGIN_ATTEMPTS, now.plus(LOGIN_LOCK_DURATION));
             if (user.isLocked(Instant.now())) {
                 throw lockedException(user);
             }
@@ -99,89 +80,49 @@ public class AuthService {
         }
         user.registerSuccessfulLogin();
 
-        Issued issued = issueTokens(user.getId());
-        LoginResponse.LoginUser loginUser = new LoginResponse.LoginUser(user.getId(), user.getNickname(), user.isOnboardingDone());
-        return new LoginResponse(issued.tokens().accessToken(), issued.tokens().refreshToken(), issued.tokens().expiresIn(), loginUser);
+        TokenResponse tokens = issueTokens(user.getId()).tokens();
+        return new LoginResponse(tokens.accessToken(), tokens.refreshToken(), tokens.expiresIn(),
+                new LoginResponse.LoginUser(user.getId(), user.getName(), user.isOnboardingDone()));
     }
 
+    /** 회전 방식. 이미 무효화된 토큰이 다시 오면 탈취로 간주해 그 사용자의 살아있는 refresh 토큰을 전부 무효화한다. */
     public TokenResponse refresh(RefreshRequest request) {
         Claims claims = parseRefreshClaims(request.refreshToken());
-        String hash = hash(request.refreshToken());
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash)
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash(request.refreshToken()))
                 .orElseThrow(() -> new ApiException(ErrorCode.AUTH_TOKEN_INVALID));
 
         Instant now = Instant.now();
         if (stored.isRevoked()) {
-            revokeAllActiveTokens(stored.getUserId(), now);
+            revokeAllActiveTokensExcept(stored.getUserId(), null, now);
             throw new ApiException(ErrorCode.AUTH_TOKEN_INVALID);
         }
         if (stored.isExpired(now)) {
             throw new ApiException(ErrorCode.AUTH_TOKEN_EXPIRED);
         }
 
-        Long userId = jwtTokenProvider.getUserId(claims);
-        Issued issued = issueTokens(userId);
+        Issued issued = issueTokens(jwtTokenProvider.getUserId(claims));
         stored.revoke(now, issued.refreshTokenId());
         return issued.tokens();
     }
 
     public void logout(Long userId, LogoutRequest request) {
-        String hash = hash(request.refreshToken());
-        refreshTokenRepository.findByTokenHash(hash)
+        refreshTokenRepository.findByTokenHash(hash(request.refreshToken()))
                 .filter(token -> token.getUserId().equals(userId))
                 .filter(token -> !token.isRevoked())
                 .ifPresent(token -> token.revoke(Instant.now()));
-
-        if (request.deviceId() != null) {
-            deviceService.deactivateIfOwned(userId, request.deviceId());
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public CheckLoginIdResponse checkLoginId(String loginId) {
-        // ponytail: IP당 분당 20회 제한은 공통 rate-limit 인프라가 생기면 필터로 추가.
-        return new CheckLoginIdResponse(!userRepository.existsByLoginId(loginId));
     }
 
     public void changePassword(Long userId, ChangePasswordRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.AUTH_UNAUTHORIZED));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.AUTH_UNAUTHORIZED));
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw new ApiException(ErrorCode.USER_PASSWORD_MISMATCH);
         }
         if (request.currentPassword().equals(request.newPassword())) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation("newPassword", "현재 비밀번호와 달라야 해요.")));
+            throw ApiException.invalid("newPassword", "현재 비밀번호와 달라야 해요.");
         }
         user.changePassword(passwordEncoder.encode(request.newPassword()));
         String keepHash = request.refreshToken() == null ? null : hash(request.refreshToken());
         revokeAllActiveTokensExcept(userId, keepHash, Instant.now());
-    }
-
-    private Map<ConsentType, Boolean> parseConsents(List<ConsentItem> items) {
-        Map<ConsentType, Boolean> result = new EnumMap<>(ConsentType.class);
-        for (ConsentItem item : items) {
-            ConsentType type = toConsentType(item.type());
-            if (result.containsKey(type)) {
-                throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                        List.of(new FieldViolation("consents", "같은 동의 타입이 중복됐어요: " + item.type())));
-            }
-            result.put(type, item.agreed());
-        }
-        return result;
-    }
-
-    private ConsentType toConsentType(String type) {
-        try {
-            return ConsentType.valueOf(type);
-        } catch (IllegalArgumentException e) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation("consents", "알 수 없는 동의 타입이에요: " + type)));
-        }
-    }
-
-    private boolean isAgreed(Map<ConsentType, Boolean> agreedByType, ConsentType type) {
-        return Boolean.TRUE.equals(agreedByType.get(type));
     }
 
     private Claims parseRefreshClaims(String token) {
@@ -203,10 +144,6 @@ public class AuthService {
         return new ApiException(ErrorCode.RATE_LIMITED, Map.of("retryAfterSec", retryAfterSec));
     }
 
-    private void revokeAllActiveTokens(Long userId, Instant now) {
-        revokeAllActiveTokensExcept(userId, null, now);
-    }
-
     private void revokeAllActiveTokensExcept(Long userId, String keepTokenHash, Instant now) {
         refreshTokenRepository.findAllByUserIdAndRevokedAtIsNull(userId).stream()
                 .filter(token -> keepTokenHash == null || !token.getTokenHash().equals(keepTokenHash))
@@ -218,11 +155,11 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createAccessToken(userId);
         String refreshToken = jwtTokenProvider.createRefreshToken(userId, expiresAt);
         RefreshToken saved = refreshTokenRepository.save(new RefreshToken(userId, hash(refreshToken), expiresAt));
-        TokenResponse response = new TokenResponse(accessToken, refreshToken, jwtTokenProvider.accessTokenExpirySeconds());
-        return new Issued(response, saved.getId());
+        return new Issued(new TokenResponse(accessToken, refreshToken, jwtTokenProvider.accessTokenExpirySeconds()),
+                saved.getId());
     }
 
-    private String hash(String token) {
+    private static String hash(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));

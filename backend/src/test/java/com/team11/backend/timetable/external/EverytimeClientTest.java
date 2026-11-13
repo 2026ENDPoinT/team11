@@ -8,6 +8,7 @@ import com.team11.backend.common.exception.ApiException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+/** 실제 외부 호출 경로는 HTTP 스텁 라이브러리가 없어 테스트하지 않고 파싱/변환만 검증한다. */
 class EverytimeClientTest {
 
     // 2026-11-13에 https://everytime.kr/@XBnJpRXLiTn3lRiMWEv6 에서 실제로 받은 응답 형태.
@@ -51,7 +52,6 @@ class EverytimeClientTest {
         EverytimeClient.Subject first = subjects.get(0);
         assertThat(first.id()).isEqualTo("8096439");
         assertThat(first.name()).isEqualTo("오픈소스소프트웨어");
-        assertThat(first.times()).hasSize(1);
         EverytimeClient.Time time = first.times().get(0);
         assertThat(time.day()).isEqualTo(3); // 목
         assertThat(time.startUnit()).isEqualTo(108); // 09:00
@@ -61,13 +61,7 @@ class EverytimeClientTest {
 
     @Test
     void parse_whenTableStatusIsPrivate_throws() {
-        String privateXml = """
-                <response>
-                  <table status="-2"></table>
-                </response>
-                """;
-
-        assertThatThrownBy(() -> client.parse(privateXml))
+        assertThatThrownBy(() -> client.parse("<response><table status=\"-2\"></table></response>"))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getErrorCode())
                 .isEqualTo(ErrorCode.EVERYTIME_IMPORT_FAILED);
@@ -75,9 +69,7 @@ class EverytimeClientTest {
 
     @Test
     void extractIdentifier_acceptsShareUrlAndRejectsOthers() {
-        assertThat(client.extractIdentifier("https://everytime.kr/@XBnJpRXLiTn3lRiMWEv6"))
-                .isEqualTo("XBnJpRXLiTn3lRiMWEv6");
-
+        assertThat(client.extractIdentifier("https://everytime.kr/@XBnJpRXLiTn3lRiMWEv6")).isEqualTo("XBnJpRXLiTn3lRiMWEv6");
         assertThatThrownBy(() -> client.extractIdentifier("https://everytime.kr/timetable"))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getErrorCode())

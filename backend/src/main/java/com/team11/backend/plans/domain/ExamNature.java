@@ -1,6 +1,6 @@
 package com.team11.backend.plans.domain;
 
-/** AI-03 selection.examNature. 추천을 요청하는 시점에 사용자가 고른다. */
+/** 공부 모드 시트 칩 3개: 암기 / 혼합 / 문제풀이(AI-03 selection.examNature). */
 public enum ExamNature {
     RECALL, MIXED, PROBLEM_SOLVING
 }

@@ -1,11 +1,14 @@
 package com.team11.backend;
 
+import static com.team11.backend.ApiTestSupport.PASSWORD;
+import static com.team11.backend.ApiTestSupport.bearer;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,138 +23,129 @@ import org.springframework.test.web.servlet.MockMvc;
 class AuthControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
-
-    private static final String SIGNUP_BODY = """
-            {
-              "loginId": "%s",
-              "password": "P@ssw0rd1",
-              "nickname": "한결",
-              "consents": [
-                { "type": "TERMS", "agreed": true },
-                { "type": "PRIVACY", "agreed": true }
-              ]
-            }
-            """;
+    MockMvc mockMvc;
 
     @Test
-    void signup_login_refresh_happyPath() throws Exception {
-        String loginId = "gksruf22";
-
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(SIGNUP_BODY.formatted(loginId)))
+    void signup_login_refreshRotation() throws Exception {
+        String loginId = "authhappy1";
+        mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "name": "한결", "loginId": "%s", "password": "%s" }
+                        """.formatted(loginId, PASSWORD)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.loginId").value(loginId));
+                .andExpect(jsonPath("$.data.loginId").value(loginId))
+                .andExpect(jsonPath("$.data.name").value("한결"));
 
-        mockMvc.perform(get("/api/v1/auth/check-login-id").param("loginId", loginId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.available").value(false));
+        // 중복 아이디
+        mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "name": "다른사람", "loginId": "%s", "password": "%s" }
+                        """.formatted(loginId, PASSWORD)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("USER_DUPLICATE_LOGIN_ID"));
 
-        String loginBody = """
-                { "loginId": "%s", "password": "P@ssw0rd1" }
-                """.formatted(loginId);
-
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.accessToken", notNullValue()))
-                .andReturn().getResponse().getContentAsString();
-
-        String refreshToken = com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.refreshToken");
+        String loginResponse = ApiTestSupport.login(mockMvc, loginId);
+        String refreshToken = JsonPath.read(loginResponse, "$.data.refreshToken");
+        org.assertj.core.api.Assertions.assertThat((Boolean) JsonPath.read(loginResponse, "$.data.user.onboardingDone")).isFalse();
 
         String refreshBody = """
                 { "refreshToken": "%s" }
                 """.formatted(refreshToken);
-
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshBody))
+        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content(refreshBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken", notNullValue()));
 
-        // 회전된(=이미 사용된) refreshToken 재사용은 탈취로 간주해 거부
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshBody))
+        // 회전된 토큰 재사용 = 탈취로 간주
+        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content(refreshBody))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_TOKEN_INVALID"));
     }
 
     @Test
-    void signup_withoutRequiredConsent_returnsConsentRequired() throws Exception {
-        String body = """
-                {
-                  "loginId": "noconsent1",
-                  "password": "P@ssw0rd1",
-                  "nickname": "테스터",
-                  "consents": [ { "type": "TERMS", "agreed": true } ]
-                }
-                """;
-
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("CONSENT_REQUIRED"));
+    void signup_invalidPassword_returnsValidationFailed() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "name": "한결", "loginId": "weakpw01", "password": "short" }
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.error.details[0].field").value("password"));
     }
 
     @Test
-    void logout_withDeviceId_deactivatesOwnedDevice() throws Exception {
-        String loginId = "logoutdevice1";
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(SIGNUP_BODY.formatted(loginId)))
-                .andExpect(status().isCreated());
+    void login_fiveFailures_locksAccount() throws Exception {
+        String loginId = "lockme0001";
+        ApiTestSupport.signup(mockMvc, loginId);
+        String wrong = """
+                { "loginId": "%s", "password": "wrongpass1" }
+                """.formatted(loginId);
+        for (int i = 0; i < 4; i++) {
+            mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_CREDENTIALS"));
+        }
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
+                .andExpect(jsonPath("$.error.details.retryAfterSec", notNullValue()));
 
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "loginId": "%s", "password": "P@ssw0rd1" }
-                                """.formatted(loginId)))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String accessToken = com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.accessToken");
-        String refreshToken = com.jayway.jsonpath.JsonPath.read(loginResponse, "$.data.refreshToken");
+        // 잠긴 동안엔 맞는 비밀번호도 거부
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "loginId": "%s", "password": "%s" }
+                        """.formatted(loginId, PASSWORD)))
+                .andExpect(status().isTooManyRequests());
+    }
 
-        String deviceResponse = mockMvc.perform(post("/api/v1/devices").header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "platform": "IOS", "pushToken": "ExponentPushToken[logoutdevice1]" }
+    @Test
+    void changePassword_thenLoginWithNew_andLogout() throws Exception {
+        String loginId = "changepw01";
+        ApiTestSupport.signup(mockMvc, loginId);
+        String loginResponse = ApiTestSupport.login(mockMvc, loginId);
+        String accessToken = JsonPath.read(loginResponse, "$.data.accessToken");
+        String refreshToken = JsonPath.read(loginResponse, "$.data.refreshToken");
+
+        mockMvc.perform(put("/api/v1/auth/password").with(bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "currentPassword": "nope12345", "newPassword": "NewPass123" }
                                 """))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        Integer deviceId = com.jayway.jsonpath.JsonPath.read(deviceResponse, "$.data.deviceId");
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("USER_PASSWORD_MISMATCH"));
 
-        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "refreshToken": "%s", "deviceId": %d }
-                                """.formatted(refreshToken, deviceId)))
+        mockMvc.perform(put("/api/v1/auth/password").with(bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "currentPassword": "%s", "newPassword": "NewPass123" }
+                                """.formatted(PASSWORD)))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/v1/devices").header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.devices", org.hamcrest.Matchers.hasSize(0)));
+        // 비번 변경 시 refreshToken을 안 보냈으니 기존 세션은 전부 무효
+        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "refreshToken": "%s" }
+                        """.formatted(refreshToken)))
+                .andExpect(status().isUnauthorized());
+
+        String newLogin = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "loginId": "%s", "password": "NewPass123" }
+                        """.formatted(loginId)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String newAccess = JsonPath.read(newLogin, "$.data.accessToken");
+        String newRefresh = JsonPath.read(newLogin, "$.data.refreshToken");
+
+        mockMvc.perform(post("/api/v1/auth/logout").with(bearer(newAccess))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                { "refreshToken": "%s" }
+                                """.formatted(newRefresh)))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
+                        { "refreshToken": "%s" }
+                        """.formatted(newRefresh)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void login_withWrongPassword_returnsInvalidCredentials() throws Exception {
-        String loginId = "wrongpw1";
-        mockMvc.perform(post("/api/v1/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(SIGNUP_BODY.formatted(loginId)))
-                .andExpect(status().isCreated());
-
-        String loginBody = """
-                { "loginId": "%s", "password": "wrong1234" }
-                """.formatted(loginId);
-
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginBody))
+    void refreshToken_cannotBeUsedAsAccessToken() throws Exception {
+        String loginId = "refreshas01";
+        ApiTestSupport.signup(mockMvc, loginId);
+        String refreshToken = JsonPath.read(ApiTestSupport.login(mockMvc, loginId), "$.data.refreshToken");
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/users/me")
+                        .with(bearer(refreshToken)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.error.code").value("AUTH_TOKEN_INVALID"));
     }
 }

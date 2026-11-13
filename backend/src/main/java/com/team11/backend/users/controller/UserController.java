@@ -5,12 +5,11 @@ import com.team11.backend.users.dto.ConsentsResponse;
 import com.team11.backend.users.dto.DeleteAccountRequest;
 import com.team11.backend.users.dto.NotificationSettingsView;
 import com.team11.backend.users.dto.OnboardingRequest;
-import com.team11.backend.users.dto.OnboardingResponse;
-import com.team11.backend.users.dto.SelectCharacterRequest;
-import com.team11.backend.users.dto.SelectCharacterResponse;
+import com.team11.backend.users.dto.SleepSettingsView;
 import com.team11.backend.users.dto.UpdateConsentsRequest;
 import com.team11.backend.users.dto.UpdateNotificationSettingsRequest;
 import com.team11.backend.users.dto.UpdateProfileRequest;
+import com.team11.backend.users.dto.UpdateSettingsRequest;
 import com.team11.backend.users.dto.UserProfileResponse;
 import com.team11.backend.users.service.UserService;
 import jakarta.validation.Valid;
@@ -18,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,49 +34,53 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<UserProfileResponse>> getProfile(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.success(userService.getProfile(userId)));
+    public ApiResponse<UserProfileResponse> getProfile(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(userService.getProfile(userId));
     }
 
-    @PatchMapping
-    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@AuthenticationPrincipal Long userId,
-                                                                            @Valid @RequestBody UpdateProfileRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(userService.updateProfile(userId, request)));
+    @PutMapping
+    public ApiResponse<UserProfileResponse> updateProfile(@AuthenticationPrincipal Long userId,
+                                                          @Valid @RequestBody UpdateProfileRequest request) {
+        return ApiResponse.success(userService.updateProfile(userId, request));
     }
 
     @PostMapping("/onboarding")
-    public ResponseEntity<ApiResponse<OnboardingResponse>> onboarding(@AuthenticationPrincipal Long userId,
-                                                                        @Valid @RequestBody OnboardingRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(userService.onboarding(userId, request)));
+    public ApiResponse<UserProfileResponse> onboarding(@AuthenticationPrincipal Long userId,
+                                                       @Valid @RequestBody OnboardingRequest request) {
+        return ApiResponse.success(userService.onboarding(userId, request));
     }
 
-    @GetMapping("/notification-settings")
-    public ResponseEntity<ApiResponse<NotificationSettingsView>> getNotificationSettings(
-            @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.success(userService.getNotificationSettings(userId)));
+    @GetMapping("/settings")
+    public ApiResponse<SleepSettingsView> getSettings(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(userService.getSettings(userId));
     }
 
-    @PutMapping("/notification-settings")
-    public ResponseEntity<ApiResponse<NotificationSettingsView>> updateNotificationSettings(
-            @AuthenticationPrincipal Long userId, @Valid @RequestBody UpdateNotificationSettingsRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(userService.updateNotificationSettings(userId, request)));
+    @PutMapping("/settings")
+    public ApiResponse<SleepSettingsView> updateSettings(@AuthenticationPrincipal Long userId,
+                                                         @Valid @RequestBody UpdateSettingsRequest request) {
+        return ApiResponse.success(userService.updateSettings(userId, request));
     }
 
     @GetMapping("/consents")
-    public ResponseEntity<ApiResponse<ConsentsResponse>> getConsents(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.success(userService.getConsents(userId)));
+    public ApiResponse<ConsentsResponse> getConsents(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(userService.getConsents(userId));
     }
 
     @PutMapping("/consents")
-    public ResponseEntity<ApiResponse<ConsentsResponse>> updateConsents(@AuthenticationPrincipal Long userId,
-                                                                          @Valid @RequestBody UpdateConsentsRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(userService.updateConsents(userId, request)));
+    public ApiResponse<ConsentsResponse> updateConsents(@AuthenticationPrincipal Long userId,
+                                                        @Valid @RequestBody UpdateConsentsRequest request) {
+        return ApiResponse.success(userService.updateConsents(userId, request));
     }
 
-    @PutMapping("/character")
-    public ResponseEntity<ApiResponse<SelectCharacterResponse>> selectCharacter(@AuthenticationPrincipal Long userId,
-                                                                                  @Valid @RequestBody SelectCharacterRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(userService.selectCharacter(userId, request)));
+    @GetMapping("/notification-settings")
+    public ApiResponse<NotificationSettingsView> getNotificationSettings(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(userService.getNotificationSettings(userId));
+    }
+
+    @PutMapping("/notification-settings")
+    public ApiResponse<NotificationSettingsView> updateNotificationSettings(
+            @AuthenticationPrincipal Long userId, @Valid @RequestBody UpdateNotificationSettingsRequest request) {
+        return ApiResponse.success(userService.updateNotificationSettings(userId, request));
     }
 
     @DeleteMapping

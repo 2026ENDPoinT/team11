@@ -28,25 +28,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                     FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             authenticate(header.substring(BEARER_PREFIX.length()), request);
         }
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
             Claims claims = jwtTokenProvider.parse(token);
             if (jwtTokenProvider.isRefreshToken(claims)) {
-                request.setAttribute(AUTH_ERROR_ATTRIBUTE, ErrorCode.AUTH_TOKEN_INVALID);
-                return; // refreshToken은 accessToken 자리에 쓸 수 없음
+                request.setAttribute(AUTH_ERROR_ATTRIBUTE, ErrorCode.AUTH_TOKEN_INVALID); // refresh를 access 자리에 못 씀
+                return;
             }
             Long userId = jwtTokenProvider.getUserId(claims);
-            var authentication = new UsernamePasswordAuthenticationToken(userId, null, List.of());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
         } catch (ExpiredJwtException e) {
             request.setAttribute(AUTH_ERROR_ATTRIBUTE, ErrorCode.AUTH_TOKEN_EXPIRED);
         } catch (JwtException | IllegalArgumentException e) {

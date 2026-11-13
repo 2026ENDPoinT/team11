@@ -34,17 +34,13 @@ public class Consent {
     private boolean agreed;
     private Instant agreedAt;
 
-    public Consent(ConsentType type, boolean agreed) {
-        this.type = type;
-        this.agreed = agreed;
-        this.agreedAt = agreed ? Instant.now() : null;
-    }
-
-    void assignTo(User user) {
+    Consent(User user, ConsentType type, boolean agreed) {
         this.user = user;
+        this.type = type;
+        update(agreed);
     }
 
-    public void updateAgreement(boolean agreed) {
+    void update(boolean agreed) {
         this.agreed = agreed;
         this.agreedAt = agreed ? Instant.now() : null;
     }

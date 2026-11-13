@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface EventRepository extends JpaRepository<Event, Long> {
 
-    /** rangeEnd는 배타적 상한(to일 다음날 00:00)으로 전달한다. */
+    /** [rangeStart, rangeEnd) 와 겹치는 일정. 다일 일정도 놓치지 않도록 coalesce(end, start)로 비교. */
     @Query("""
             select e from Event e
             where e.userId = :userId

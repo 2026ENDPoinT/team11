@@ -1,16 +1,9 @@
 package com.team11.backend.logs.controller;
 
 import com.team11.backend.common.ApiResponse;
-import com.team11.backend.logs.domain.SleepLogStatus;
-import com.team11.backend.logs.dto.CreateSleepLogRequest;
-import com.team11.backend.logs.dto.EndSleepLogRequest;
-import com.team11.backend.logs.dto.EndSleepLogResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse;
+import com.team11.backend.logs.dto.SleepLogRequest;
 import com.team11.backend.logs.dto.SleepLogView;
-import com.team11.backend.logs.dto.StartSleepLogRequest;
-import com.team11.backend.logs.dto.SyncWearableSleepLogsRequest;
-import com.team11.backend.logs.dto.SyncWearableSleepLogsResponse;
-import com.team11.backend.logs.dto.UpdateSleepLogRequest;
 import com.team11.backend.logs.service.SleepLogService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -20,9 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,58 +31,28 @@ public class SleepLogController {
         this.sleepLogService = sleepLogService;
     }
 
-    @PostMapping("/start")
-    public ResponseEntity<ApiResponse<SleepLogView>> start(@AuthenticationPrincipal Long userId,
-                                                              @Valid @RequestBody(required = false) StartSleepLogRequest request) {
-        StartSleepLogRequest body = request != null ? request : new StartSleepLogRequest(null);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(sleepLogService.start(userId, body)));
-    }
-
-    @PostMapping("/end")
-    public ResponseEntity<ApiResponse<EndSleepLogResponse>> end(@AuthenticationPrincipal Long userId,
-                                                                  @Valid @RequestBody(required = false) EndSleepLogRequest request) {
-        EndSleepLogRequest body = request != null ? request : new EndSleepLogRequest(null, null);
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.end(userId, body)));
-    }
-
-    @GetMapping("/open")
-    public ResponseEntity<ApiResponse<SleepLogView>> getOpen(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.getOpen(userId)));
+    @GetMapping
+    public ApiResponse<SleepLogListResponse> list(@AuthenticationPrincipal Long userId,
+                                                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ApiResponse.success(sleepLogService.list(userId, from, to));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<SleepLogView>> create(@AuthenticationPrincipal Long userId,
-                                                              @Valid @RequestBody CreateSleepLogRequest request) {
+                                                             @Valid @RequestBody SleepLogRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(sleepLogService.create(userId, request)));
     }
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<SleepLogListResponse>> list(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) SleepLogStatus status) {
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.list(userId, from, to, status)));
-    }
-
-    /** SYNC-01: 애플워치/갤럭시워치 등에서 앱이 읽어 온 수면 데이터를 배치로 올린다. */
-    @PostMapping("/sync")
-    public ResponseEntity<ApiResponse<SyncWearableSleepLogsResponse>> sync(@AuthenticationPrincipal Long userId,
-                                                                             @Valid @RequestBody SyncWearableSleepLogsRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.syncFromWearable(userId, request)));
-    }
-
     @GetMapping("/{sleepLogId}")
-    public ResponseEntity<ApiResponse<SleepLogView>> getOne(@AuthenticationPrincipal Long userId,
-                                                              @PathVariable Long sleepLogId) {
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.getOne(userId, sleepLogId)));
+    public ApiResponse<SleepLogView> get(@AuthenticationPrincipal Long userId, @PathVariable Long sleepLogId) {
+        return ApiResponse.success(sleepLogService.get(userId, sleepLogId));
     }
 
-    @PatchMapping("/{sleepLogId}")
-    public ResponseEntity<ApiResponse<SleepLogView>> update(@AuthenticationPrincipal Long userId,
-                                                              @PathVariable Long sleepLogId,
-                                                              @Valid @RequestBody UpdateSleepLogRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(sleepLogService.update(userId, sleepLogId, request)));
+    @PutMapping("/{sleepLogId}")
+    public ApiResponse<SleepLogView> update(@AuthenticationPrincipal Long userId, @PathVariable Long sleepLogId,
+                                            @Valid @RequestBody SleepLogRequest request) {
+        return ApiResponse.success(sleepLogService.update(userId, sleepLogId, request));
     }
 
     @DeleteMapping("/{sleepLogId}")

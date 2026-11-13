@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8080} # Railway는 PORT 환경변수로 바인딩할 포트를 동적으로 줌
+  port: ${PORT:8080} # 호스팅(Railway/Render 등)이 PORT 환경변수로 바인딩 포트를 줌
 
 spring:
   application:
@@ -9,7 +9,7 @@ spring:
     username: ${DB_USERNAME:sleepsync}
     password: ${DB_PASSWORD:sleepsync}
     hikari:
-      connection-init-sql: "SET TIME ZONE 'Asia/Seoul'" # SQL 안에서 날짜 계산 시 세션 타임존을 KST로(OffsetDateTime 오프셋 복원은 이것만으로 안 되고 common.OffsetDateTimeConverter가 함, CLAUDE.md §4)
+      connection-init-sql: "SET TIME ZONE 'Asia/Seoul'" # SQL 안 날짜 계산용. OffsetDateTime 오프셋 복원은 common.OffsetDateTimeConverter가 함
   jpa:
     open-in-view: false
     hibernate:
@@ -20,8 +20,8 @@ spring:
           time_zone: Asia/Seoul
   flyway:
     enabled: true
-  # Jackson 기본 time-zone이 UTC라 OffsetDateTime 역직렬화 시 +09:00 입력도 Z로 정규화됨(adjust-dates-to-context-time-zone 기본 true) → +09:00로 고정.
-  # spring: 밑에 중첩해야 spring.jackson.time-zone으로 바인딩됨 — 최상위 jackson:으로 두면 적용되지 않음(실측으로 발견).
+  # Jackson 기본 time-zone이 UTC라 OffsetDateTime 역직렬화 시 입력받은 +09:00이 Z로 바뀐다 → KST로 고정.
+  # 반드시 spring: 아래 중첩(spring.jackson.time-zone). 최상위 jackson:은 적용 안 됨.
   jackson:
     time-zone: Asia/Seoul
 
@@ -30,11 +30,15 @@ jwt:
   access-token-expiry-seconds: 1800
   refresh-token-expiry-days: 14
 
-# AI 서버 호스팅 위치 미정(CLAUDE.md §10) — base-url 비우면 AiClient가 호출 자체를 생략하고 규칙 폴백한다.
+# AI 서버(통합판 AI-01~06) 주소는 AI팀 확인 전까지 비워 둔다. 비어 있으면 NORMAL은 규칙 폴백, FOCUS/EXAM은 503.
+# 읽기 타임아웃은 AI 계산 예산(tonight 2.5초, exam/focus 10초)에 정리·네트워크 여유를 더한 값.
 ai:
   base-url: ${AI_BASE_URL:}
   internal-key: ${AI_INTERNAL_KEY:}
-  timeout-seconds: 4
+  timeout:
+    tonight-seconds: 4
+    exam-seconds: 12
+    focus-seconds: 12
 
 # TODO: 플레이스홀더 날짜. 서울과학기술대 실제 학사일정으로 교체 필요(코드 변경 없이 이 값만 고치면 됨).
 app:

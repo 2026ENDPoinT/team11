@@ -25,9 +25,8 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 /**
- * 에브리타임 "친구 시간표 보기" 공유 링크가 내부적으로 호출하는 공개 XML API를 그대로 호출한다.
- * (HTML을 받아 픽셀 좌표로 역산하는 방식 대신, 그 페이지의 JS(timetable.tableload.js)가 실제로 쓰는
- * POST https://api.everytime.kr/find/timetable/table/friend 를 직접 호출 — 로그인/쿠키 불필요, 공개 시간표 전용.)
+ * 에브리타임 "친구 시간표 보기" 공유 링크가 내부적으로 호출하는 공개 XML API를 그대로 호출한다
+ * (POST https://api.everytime.kr/find/timetable/table/friend — 로그인/쿠키 불필요, 공개 시간표 전용).
  */
 @Component
 public class EverytimeClient {
@@ -50,7 +49,7 @@ public class EverytimeClient {
     public record Subject(String id, String name, List<Time> times) {
     }
 
-    /** day: 0=월 ~ 6=일(timetable.domain.DayOfWeek과 선언 순서가 같음). startUnit/endUnit: 5분 단위(0~288). */
+    /** day: 0=월 ~ 6=일(timetable.domain.DayOfWeek 선언 순서와 같음). startUnit/endUnit: 5분 단위(0~288). */
     public record Time(int day, int startUnit, int endUnit, String place) {
     }
 
@@ -81,7 +80,7 @@ public class EverytimeClient {
         return matcher.group(1);
     }
 
-    /** 5분 단위 숫자를 LocalTime 분(0~1439)으로 변환. 자정을 넘기는 수업은 23:59로 잘라낸다(사실상 발생 안 함). */
+    /** 5분 단위 숫자 → 분(0~1439). 자정을 넘기는 수업은 23:59로 잘라낸다(사실상 발생 안 함). */
     public static int toMinutesOfDay(int fiveMinuteUnit) {
         return Math.min(fiveMinuteUnit * 5, MAX_MINUTES_OF_DAY);
     }
@@ -101,16 +100,13 @@ public class EverytimeClient {
             Element table = (Element) tables.item(0);
             String status = table.getAttribute("status");
             if ("-1".equals(status) || "-2".equals(status)) {
-                throw new ApiException(ErrorCode.EVERYTIME_IMPORT_FAILED);
+                throw new ApiException(ErrorCode.EVERYTIME_IMPORT_FAILED); // 비공개/없는 시간표
             }
 
             List<Subject> subjects = new ArrayList<>();
             NodeList subjectNodes = table.getElementsByTagName("subject");
             for (int i = 0; i < subjectNodes.getLength(); i++) {
                 Element subjectEl = (Element) subjectNodes.item(i);
-                String id = subjectEl.getAttribute("id");
-                String name = childAttrValue(subjectEl, "name");
-
                 List<Time> times = new ArrayList<>();
                 NodeList dataNodes = subjectEl.getElementsByTagName("data");
                 for (int j = 0; j < dataNodes.getLength(); j++) {
@@ -121,7 +117,7 @@ public class EverytimeClient {
                             Integer.parseInt(dataEl.getAttribute("endtime")),
                             dataEl.getAttribute("place")));
                 }
-                subjects.add(new Subject(id, name, times));
+                subjects.add(new Subject(subjectEl.getAttribute("id"), childAttrValue(subjectEl, "name"), times));
             }
             return subjects;
         } catch (ApiException e) {
@@ -133,10 +129,7 @@ public class EverytimeClient {
 
     private static String childAttrValue(Element parent, String tagName) {
         NodeList nodes = parent.getElementsByTagName(tagName);
-        if (nodes.getLength() == 0) {
-            return "";
-        }
-        return ((Element) nodes.item(0)).getAttribute("value");
+        return nodes.getLength() == 0 ? "" : ((Element) nodes.item(0)).getAttribute("value");
     }
 
     private static MultiValueMap<String, String> buildForm(String identifier) {

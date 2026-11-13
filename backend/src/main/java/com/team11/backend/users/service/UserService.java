@@ -1,39 +1,28 @@
 package com.team11.backend.users.service;
 
-import com.team11.backend.auth.dto.ConsentItem;
 import com.team11.backend.common.ErrorCode;
-import com.team11.backend.common.FieldViolation;
 import com.team11.backend.common.exception.ApiException;
-import com.team11.backend.users.domain.Character;
-import com.team11.backend.users.domain.Chronotype;
-import com.team11.backend.users.domain.Consent;
 import com.team11.backend.users.domain.ConsentType;
 import com.team11.backend.users.domain.NotificationSettings;
 import com.team11.backend.users.domain.User;
-import com.team11.backend.users.dto.CharacterListResponse;
-import com.team11.backend.users.dto.CharacterView;
+import com.team11.backend.users.dto.ConsentItem;
 import com.team11.backend.users.dto.ConsentsResponse;
 import com.team11.backend.users.dto.ConsentsResponse.ConsentView;
 import com.team11.backend.users.dto.DeleteAccountRequest;
 import com.team11.backend.users.dto.NotificationSettingsView;
 import com.team11.backend.users.dto.OnboardingRequest;
-import com.team11.backend.users.dto.OnboardingResponse;
-import com.team11.backend.users.dto.OnboardingResponse.SuggestedSettings;
-import com.team11.backend.users.dto.SelectCharacterRequest;
-import com.team11.backend.users.dto.SelectCharacterResponse;
+import com.team11.backend.users.dto.SleepSettingsView;
 import com.team11.backend.users.dto.UpdateConsentsRequest;
 import com.team11.backend.users.dto.UpdateNotificationSettingsRequest;
 import com.team11.backend.users.dto.UpdateProfileRequest;
+import com.team11.backend.users.dto.UpdateSettingsRequest;
 import com.team11.backend.users.dto.UserProfileResponse;
-import com.team11.backend.users.repository.CharacterRepository;
 import com.team11.backend.users.repository.NotificationSettingsRepository;
 import com.team11.backend.users.repository.UserRepository;
-import java.time.DateTimeException;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,20 +31,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class UserService {
 
-    private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
-    private static final int CHRONOTYPE_MORNING_BOUNDARY_MIN = 4 * 60;
-    private static final int CHRONOTYPE_NEUTRAL_BOUNDARY_MIN = 5 * 60 + 30;
+    private static final Set<Integer> BEDTIME_LEAD_OPTIONS = Set.of(15, 30, 60);
 
     private final UserRepository userRepository;
-    private final CharacterRepository characterRepository;
     private final NotificationSettingsRepository notificationSettingsRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, CharacterRepository characterRepository,
-                        NotificationSettingsRepository notificationSettingsRepository,
+    public UserService(UserRepository userRepository, NotificationSettingsRepository notificationSettingsRepository,
                         PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.characterRepository = characterRepository;
         this.notificationSettingsRepository = notificationSettingsRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -66,121 +50,89 @@ public class UserService {
     }
 
     public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
-        if (request.isEmpty()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation("request", "수정할 값을 하나 이상 보내 주세요.")));
-        }
         User user = findUser(userId);
-
-        if (request.nickname() != null && userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
-            throw new ApiException(ErrorCode.NICKNAME_DUPLICATED);
-        }
-
-        int effectiveSleepNeedMin = request.sleepNeedMin() != null ? request.sleepNeedMin() : user.getSleepNeedMin();
-        int effectiveMinSleepMin = request.minSleepMin() != null ? request.minSleepMin() : user.getMinSleepMin();
-        if (effectiveSleepNeedMin < effectiveMinSleepMin) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation("sleepNeedMin", "minSleepMin 이상이어야 해요.")));
-        }
-
-        user.updateSettings(request.nickname(), request.chronotype(), request.sleepNeedMin(),
-                request.sleepLatencyMin(), request.commuteMin(), request.prepMin(), request.bufferMin(),
-                request.minSleepMin());
+        user.rename(request.name().trim());
         return UserProfileResponse.from(user);
     }
 
-    public OnboardingResponse onboarding(Long userId, OnboardingRequest request) {
+    /** 필수 동의 3종이 모두 true여야 한다. 알림 허용은 NOTIFICATION 동의 + 알림 설정 초기값으로 반영. */
+    public UserProfileResponse onboarding(Long userId, OnboardingRequest request) {
         User user = findUser(userId);
+        Map<ConsentType, Boolean> consents = toMap(request.consents());
+        for (ConsentType type : ConsentType.values()) {
+            if (type.isRequired() && !Boolean.TRUE.equals(consents.get(type))) {
+                throw new ApiException(ErrorCode.CONSENT_REQUIRED, Map.of("missing", type.name()));
+            }
+        }
+        if (request.notificationAllowed() != null) {
+            consents.put(ConsentType.NOTIFICATION, request.notificationAllowed());
+        }
+        consents.forEach(user::setConsent);
 
-        // 평일 시각은 형식만 검증하고 계산에는 쓰지 않음(명세가 자유일만 사용)
-        parseTime("weekdayBedTime", request.weekdayBedTime());
-        parseTime("weekdayWakeTime", request.weekdayWakeTime());
-        LocalTime bed = parseTime("freedayBedTime", request.freedayBedTime());
-        LocalTime wake = parseTime("freedayWakeTime", request.freedayWakeTime());
+        user.updateSettings(request.sleepNeedMin(), request.sleepLatencyMin(), request.commuteMin(), request.prepMin(),
+                null, null, request.examPrepDays(), null, null);
+        validateSettings(user);
+        user.completeOnboarding();
 
-        int bedMin = bed.getHour() * 60 + bed.getMinute();
-        int wakeMin = wake.getHour() * 60 + wake.getMinute();
-        int durationMin = bedMin <= wakeMin ? wakeMin - bedMin : (1440 - bedMin) + wakeMin;
-        int midMin = (bedMin + durationMin / 2) % 1440;
-        Chronotype chronotype = classifyChronotype(midMin);
-
-        int suggestedSleepNeedMin = Math.clamp(durationMin, 300, 600);
-
-        user.applyOnboarding(chronotype, suggestedSleepNeedMin, request.sleepLatencyMin(), request.commuteMin(),
-                request.prepMin());
-
-        String midSleepFreeday = "%02d:%02d".formatted(midMin / 60, midMin % 60);
-        SuggestedSettings suggestedSettings = new SuggestedSettings(
-                suggestedSleepNeedMin, request.sleepLatencyMin(), request.commuteMin(), request.prepMin(), 10);
-        return new OnboardingResponse(chronotype, midSleepFreeday, suggestedSettings, user.isOnboardingDone());
+        if (request.notificationAllowed() != null) {
+            boolean allowed = request.notificationAllowed();
+            getOrCreateNotificationSettings(userId).update(allowed, allowed, 30);
+        }
+        return UserProfileResponse.from(user);
     }
 
     @Transactional(readOnly = true)
-    public NotificationSettingsView getNotificationSettings(Long userId) {
-        return NotificationSettingsView.from(getOrCreateNotificationSettings(userId));
+    public SleepSettingsView getSettings(Long userId) {
+        return SleepSettingsView.from(findUser(userId));
     }
 
-    public NotificationSettingsView updateNotificationSettings(Long userId, UpdateNotificationSettingsRequest request) {
-        NotificationSettings settings = getOrCreateNotificationSettings(userId);
-        LocalTime quietStart = null;
-        LocalTime quietEnd = null;
-        if (request.quietHours() != null) {
-            quietStart = parseTime("quietHours.start", request.quietHours().start());
-            quietEnd = parseTime("quietHours.end", request.quietHours().end());
+    public SleepSettingsView updateSettings(Long userId, UpdateSettingsRequest request) {
+        if (request.isEmpty()) {
+            throw ApiException.invalid("request", "수정할 값을 하나 이상 보내 주세요.");
         }
-        settings.update(request.enabled(), request.windDownMinBefore(), request.bedReminderEnabled(),
-                request.caffeineCutoffEnabled(), request.napReminderEnabled(), request.streakRiskEnabled(),
-                request.weeklyReportEnabled(), quietStart, quietEnd);
-        return NotificationSettingsView.from(settings);
+        User user = findUser(userId);
+        user.updateSettings(request.sleepNeedMin(), request.sleepLatencyMin(), request.commuteMin(), request.prepMin(),
+                request.bufferMin(), request.minSleepMin(), request.examPrepDays(), request.focusMinInBedMin(),
+                request.focusMaxInBedMin());
+        validateSettings(user);
+        return SleepSettingsView.from(user);
     }
 
     @Transactional(readOnly = true)
     public ConsentsResponse getConsents(Long userId) {
-        User user = findUser(userId);
-        return new ConsentsResponse(user.getConsents().stream().map(ConsentView::from).toList());
+        return toConsentsResponse(findUser(userId));
     }
 
     public ConsentsResponse updateConsents(Long userId, UpdateConsentsRequest request) {
         User user = findUser(userId);
-        Map<ConsentType, Boolean> requested = new EnumMap<>(ConsentType.class);
-        for (ConsentItem item : request.consents()) {
-            ConsentType type = toConsentType(item.type());
-            if (requested.containsKey(type)) {
-                throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                        List.of(new FieldViolation("consents", "같은 동의 타입이 중복됐어요: " + item.type())));
+        Map<ConsentType, Boolean> requested = toMap(request.consents());
+        requested.forEach((type, agreed) -> {
+            if (type.isRequired() && !agreed) {
+                throw new ApiException(ErrorCode.CONSENT_NOT_REVOCABLE, Map.of("type", type.name()));
             }
-            if (type.isRequired() && !Boolean.TRUE.equals(item.agreed())) {
-                throw new ApiException(ErrorCode.CONSENT_NOT_REVOCABLE);
-            }
-            requested.put(type, item.agreed());
+        });
+        requested.forEach(user::setConsent);
+        return toConsentsResponse(user);
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationSettingsView getNotificationSettings(Long userId) {
+        findUser(userId);
+        return NotificationSettingsView.from(notificationSettingsRepository.findById(userId)
+                .orElseGet(() -> new NotificationSettings(userId)));
+    }
+
+    public NotificationSettingsView updateNotificationSettings(Long userId, UpdateNotificationSettingsRequest request) {
+        findUser(userId);
+        if (!BEDTIME_LEAD_OPTIONS.contains(request.bedtimeLeadMin())) {
+            throw ApiException.invalid("bedtimeLeadMin", "15, 30, 60 중 하나여야 해요.");
         }
-        for (Consent consent : user.getConsents()) {
-            Boolean agreed = requested.get(consent.getType());
-            if (agreed != null) {
-                consent.updateAgreement(agreed);
-            }
-        }
-        return new ConsentsResponse(user.getConsents().stream().map(ConsentView::from).toList());
+        NotificationSettings settings = getOrCreateNotificationSettings(userId);
+        settings.update(request.wakeAlarmEnabled(), request.bedtimeAlarmEnabled(), request.bedtimeLeadMin());
+        return NotificationSettingsView.from(settings);
     }
 
-    public CharacterListResponse listCharacters(Long userId) {
-        User user = findUser(userId);
-        List<CharacterView> characters = characterRepository.findAllByActiveTrueOrderBySortOrderAsc().stream()
-                .map(CharacterView::from)
-                .toList();
-        Long selectedId = user.getCharacter() != null ? user.getCharacter().getId() : null;
-        return new CharacterListResponse(selectedId, characters);
-    }
-
-    public SelectCharacterResponse selectCharacter(Long userId, SelectCharacterRequest request) {
-        User user = findUser(userId);
-        Character character = characterRepository.findById(request.characterId())
-                .filter(Character::isActive)
-                .orElseThrow(() -> new ApiException(ErrorCode.CHARACTER_NOT_FOUND));
-        user.selectCharacter(character);
-        return new SelectCharacterResponse(CharacterView.from(character));
-    }
-
+    /** 비번 확인 후 users row 삭제 — 나머지 테이블은 FK ON DELETE CASCADE. accessToken은 만료까지 남지만 사용자 조회가 실패해 막힌다. */
     public void deleteAccount(Long userId, DeleteAccountRequest request) {
         User user = findUser(userId);
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -189,8 +141,27 @@ public class UserService {
         userRepository.delete(user);
     }
 
-    private User findUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.AUTH_UNAUTHORIZED));
+    private void validateSettings(User user) {
+        if (user.getSleepNeedMin() < user.getMinSleepMin()) {
+            throw ApiException.invalid("sleepNeedMin", "minSleepMin 이상이어야 해요.");
+        }
+        if (user.getFocusMinInBedMin() > user.getFocusMaxInBedMin()) {
+            throw ApiException.invalid("focusMinInBedMin", "focusMaxInBedMin 이하여야 해요.");
+        }
+    }
+
+    private static Map<ConsentType, Boolean> toMap(List<ConsentItem> items) {
+        Map<ConsentType, Boolean> result = new EnumMap<>(ConsentType.class);
+        for (ConsentItem item : items) {
+            if (result.put(item.type(), item.agreed()) != null) {
+                throw ApiException.invalid("consents", "같은 동의 타입이 중복됐어요: " + item.type());
+            }
+        }
+        return result;
+    }
+
+    private static ConsentsResponse toConsentsResponse(User user) {
+        return new ConsentsResponse(user.getConsents().stream().map(ConsentView::from).toList());
     }
 
     private NotificationSettings getOrCreateNotificationSettings(Long userId) {
@@ -198,31 +169,7 @@ public class UserService {
                 .orElseGet(() -> notificationSettingsRepository.save(new NotificationSettings(userId)));
     }
 
-    private ConsentType toConsentType(String type) {
-        try {
-            return ConsentType.valueOf(type);
-        } catch (IllegalArgumentException e) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation("consents", "알 수 없는 동의 타입이에요: " + type)));
-        }
-    }
-
-    private LocalTime parseTime(String field, String value) {
-        try {
-            return LocalTime.parse(value, HH_MM);
-        } catch (DateTimeException e) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    List.of(new FieldViolation(field, "HH:mm 형식이어야 해요.")));
-        }
-    }
-
-    private Chronotype classifyChronotype(int midSleepMin) {
-        if (midSleepMin < CHRONOTYPE_MORNING_BOUNDARY_MIN) {
-            return Chronotype.MORNING;
-        }
-        if (midSleepMin <= CHRONOTYPE_NEUTRAL_BOUNDARY_MIN) {
-            return Chronotype.NEUTRAL;
-        }
-        return Chronotype.EVENING;
+    private User findUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.AUTH_UNAUTHORIZED));
     }
 }

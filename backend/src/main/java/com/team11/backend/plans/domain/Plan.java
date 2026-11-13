@@ -18,6 +18,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
+/** 기상일(date) × 모드당 1건. 재생성(POST)은 같은 행을 덮어쓴다. */
 @Entity
 @Table(name = "plans")
 @Getter
@@ -29,7 +30,7 @@ public class Plan {
     private Long id;
 
     private Long userId;
-    private LocalDate targetDate;
+    private LocalDate date;
 
     @Enumerated(EnumType.STRING)
     private PlanMode mode;
@@ -37,21 +38,12 @@ public class Plan {
     @Enumerated(EnumType.STRING)
     private PlanStatus status;
 
-    private OffsetDateTime recommendedBedAt;
-    private OffsetDateTime recommendedWakeAt;
-    private OffsetDateTime userBedAt;
-    private int sleepMin;
-
-    private Integer breakdownCommuteMin;
-    private Integer breakdownPrepMin;
-    private Integer breakdownBufferMin;
-    private Integer breakdownSleepNeedMin;
-    private Integer breakdownSleepLatencyMin;
-
-    @Enumerated(EnumType.STRING)
-    private FirstEventKind firstEventKind;
-    private String firstEventTitle;
-    private OffsetDateTime firstEventStartAt;
+    private OffsetDateTime bedAt;
+    private OffsetDateTime wakeAt;
+    private Integer sleepMin;
+    private String basisText;
+    private String generatedBy;
+    private String modelVersion;
 
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> reasons;
@@ -59,45 +51,28 @@ public class Plan {
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> warnings;
 
-    private String generatedBy;
-    private String modelVersion;
-    private OffsetDateTime generatedAt;
-
     @CreationTimestamp
     private Instant createdAt;
 
     @UpdateTimestamp
     private Instant updatedAt;
 
-    public Plan(Long userId, LocalDate targetDate, PlanMode mode, OffsetDateTime recommendedBedAt,
-                OffsetDateTime recommendedWakeAt, int sleepMin, Integer breakdownCommuteMin, Integer breakdownPrepMin,
-                Integer breakdownBufferMin, Integer breakdownSleepNeedMin, Integer breakdownSleepLatencyMin,
-                FirstEventKind firstEventKind, String firstEventTitle, OffsetDateTime firstEventStartAt,
-                List<String> reasons, List<String> warnings, String generatedBy, String modelVersion,
-                OffsetDateTime generatedAt) {
+    public Plan(Long userId, LocalDate date, PlanMode mode, PlanDraft draft) {
         this.userId = userId;
-        this.targetDate = targetDate;
+        this.date = date;
         this.mode = mode;
-        this.status = PlanStatus.ACTIVE;
-        this.recommendedBedAt = recommendedBedAt;
-        this.recommendedWakeAt = recommendedWakeAt;
-        this.sleepMin = sleepMin;
-        this.breakdownCommuteMin = breakdownCommuteMin;
-        this.breakdownPrepMin = breakdownPrepMin;
-        this.breakdownBufferMin = breakdownBufferMin;
-        this.breakdownSleepNeedMin = breakdownSleepNeedMin;
-        this.breakdownSleepLatencyMin = breakdownSleepLatencyMin;
-        this.firstEventKind = firstEventKind;
-        this.firstEventTitle = firstEventTitle;
-        this.firstEventStartAt = firstEventStartAt;
-        this.reasons = reasons;
-        this.warnings = warnings;
-        this.generatedBy = generatedBy;
-        this.modelVersion = modelVersion;
-        this.generatedAt = generatedAt;
+        replace(draft);
     }
 
-    public boolean isOwnedBy(Long userId) {
-        return this.userId.equals(userId);
+    public void replace(PlanDraft d) {
+        this.status = d.status();
+        this.bedAt = d.bedAt();
+        this.wakeAt = d.wakeAt();
+        this.sleepMin = d.sleepMin();
+        this.basisText = d.basisText();
+        this.generatedBy = d.generatedBy();
+        this.modelVersion = d.modelVersion();
+        this.reasons = d.reasons() == null ? List.of() : d.reasons();
+        this.warnings = d.warnings() == null ? List.of() : d.warnings();
     }
 }
