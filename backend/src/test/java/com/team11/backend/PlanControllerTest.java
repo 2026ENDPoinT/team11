@@ -197,4 +197,91 @@ class PlanControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("PLAN_NOT_FOUND"));
     }
+
+    private Integer createExamEvent(String token, OffsetDateTime startAt) throws Exception {
+        String response = mockMvc.perform(post("/api/v1/events").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "type": "EXAM", "title": "중간고사", "startAt": "%s" }
+                                """.formatted(startAt)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return com.jayway.jsonpath.JsonPath.read(response, "$.data.event.eventId");
+    }
+
+    @Test
+    void examSleepPlan_withMissingSelection_returnsValidationFailed() throws Exception {
+        String token = signupAndLogin("examsleepval1", true);
+
+        mockMvc.perform(post("/api/v1/plans/exam-sleep").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void examSleepPlan_onNonExamEvent_returnsEventNotFound() throws Exception {
+        String token = signupAndLogin("examsleepnotexam1", true);
+        String response = mockMvc.perform(post("/api/v1/events").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "type": "PERSONAL", "title": "스터디", "startAt": "2026-11-20T10:00:00+09:00" }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Integer eventId = com.jayway.jsonpath.JsonPath.read(response, "$.data.event.eventId");
+
+        mockMvc.perform(post("/api/v1/plans/exam-sleep").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "eventId": %d, "preparationState": "FINAL_REVIEW", "examNature": "RECALL" }
+                                """.formatted(eventId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("EVENT_NOT_FOUND"));
+    }
+
+    @Test
+    void examSleepPlan_onOtherUsersExam_returnsForbidden() throws Exception {
+        String ownerToken = signupAndLogin("examsleepowner1", true);
+        String otherToken = signupAndLogin("examsleepother1", true);
+        Integer eventId = createExamEvent(ownerToken, OffsetDateTime.now(ASIA_SEOUL).plusHours(10));
+
+        mockMvc.perform(post("/api/v1/plans/exam-sleep").header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "eventId": %d, "preparationState": "FINAL_REVIEW", "examNature": "RECALL" }
+                                """.formatted(eventId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    void examSleepPlan_withoutAiConfigured_returnsAiUnavailable() throws Exception {
+        // 테스트 프로필은 ai.base-url이 비어 있어 항상 미설정 상태 — AI-02와 달리 규칙 폴백이 없는 게 의도된 동작.
+        String token = signupAndLogin("examsleepai1", true);
+        Integer eventId = createExamEvent(token, OffsetDateTime.now(ASIA_SEOUL).plusHours(10));
+
+        mockMvc.perform(post("/api/v1/plans/exam-sleep").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "eventId": %d, "preparationState": "FINAL_REVIEW", "examNature": "RECALL" }
+                                """.formatted(eventId)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("AI_UNAVAILABLE"));
+    }
+
+    @Test
+    void examSleepPlan_withoutEventId_stillCallsAiAndFails() throws Exception {
+        // eventId 생략 시에도(자동 선택 위임) 검증을 건너뛰고 AI를 호출한다.
+        String token = signupAndLogin("examsleepauto1", true);
+
+        mockMvc.perform(post("/api/v1/plans/exam-sleep").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "preparationState": "STARTING", "examNature": "MIXED" }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("AI_UNAVAILABLE"));
+    }
 }

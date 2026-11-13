@@ -1,6 +1,8 @@
 package com.team11.backend.plans.controller;
 
 import com.team11.backend.common.ApiResponse;
+import com.team11.backend.plans.dto.ExamSleepPlanRequest;
+import com.team11.backend.plans.dto.ExamSleepPlanView;
 import com.team11.backend.plans.dto.PlanFeedbackRequest;
 import com.team11.backend.plans.dto.PlanView;
 import com.team11.backend.plans.service.PlanService;
@@ -37,6 +39,13 @@ public class PlanController {
             @AuthenticationPrincipal Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(ApiResponse.success(planService.getPlanByDate(userId, date)));
+    }
+
+    /** EXAM-08. AI-03(exam-sleep) 연동 — 시험 1건 기준 1회성 추천, plans에 저장하지 않는다. */
+    @PostMapping("/plans/exam-sleep")
+    public ResponseEntity<ApiResponse<ExamSleepPlanView>> getExamSleepPlan(
+            @AuthenticationPrincipal Long userId, @Valid @RequestBody ExamSleepPlanRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(planService.generateExamSleepPlan(userId, request)));
     }
 
     @PostMapping("/plans/{planId}/feedback")
