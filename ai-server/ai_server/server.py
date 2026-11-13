@@ -246,6 +246,7 @@ class AIServer(ThreadingHTTPServer):
     def warmup(self):
         from pathlib import Path
         models = {}
+        reasons = {}
         probes = (("ai02", "/ai/v1/plan/tonight"), ("ai03", EXAM_SLEEP_ROUTE),
                   ("ai04", RECOVERY_BACKEND_ROUTE), ("ai05", SCHEDULE_BACKEND_ROUTE),
                   ("ai06", FOCUS_SLEEP_ROUTE))
@@ -255,9 +256,15 @@ class AIServer(ThreadingHTTPServer):
                     raw = json.loads((Path(__file__).with_name("smoke") / (name + ".json")).read_text(encoding="utf-8"))
                     result = self.runtime.execute(path, raw, probe=True)
                     models[name] = bool(result.get("result") is not None and result.get("modelVersion"))
-                except Exception:
+                    if not models[name]:
+                        reasons[name] = f"unexpected probe response: {result!r}"[:300]
+                except Exception as exc:
                     models[name] = False
-        self.smoke_status = {"ok": len(models) == len(probes) and all(models.values()), "models": models}
+                    reasons[name] = f"{type(exc).__name__}: {exc}"[:300]
+        else:
+            reasons["_resources"] = "resource manifest mismatch, see inspect_resources()"
+        self.smoke_status = {"ok": len(models) == len(probes) and all(models.values()),
+                              "models": models, "reasons": reasons}
         return self.smoke_status
 
     def readiness(self):

@@ -29,7 +29,10 @@ def main():
                 configure_tls(server, args.tls_cert, args.tls_key)
             except (OSError, ssl.SSLError) as error:
                 parser.exit(2, f"TLS 설정 오류: {error}\n")
-        if not server.readiness()["ready"]:
+        readiness = server.readiness()
+        if not readiness["ready"]:
+            import json as _json
+            print("READINESS_DEBUG: " + _json.dumps(readiness, ensure_ascii=False), flush=True)
             parser.exit(2, "모델 리소스 또는 시작 추론 검증에 실패했습니다. resource manifest를 확인하세요.\n")
         scheme = "https" if args.tls_cert else "http"
         print(f"SLEEP AI: {scheme}://{args.host}:{server.server_port}/ai/v1", flush=True)
