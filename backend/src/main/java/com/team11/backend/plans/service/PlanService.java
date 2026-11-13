@@ -1,6 +1,7 @@
 package com.team11.backend.plans.service;
 
 import com.team11.backend.ai.AiClient;
+import com.team11.backend.ai.dto.AiExamSleepRequest;
 import com.team11.backend.ai.dto.AiPlanTonightRequest;
 import com.team11.backend.ai.dto.AiPlanTonightRequest.Profile;
 import com.team11.backend.ai.dto.AiPlanTonightResult;
@@ -11,11 +12,16 @@ import com.team11.backend.events.domain.EventTag;
 import com.team11.backend.events.domain.EventType;
 import com.team11.backend.events.dto.EventView;
 import com.team11.backend.events.repository.EventRepository;
+import com.team11.backend.logs.domain.SleepLogStatus;
+import com.team11.backend.logs.dto.SleepLogView;
+import com.team11.backend.logs.service.SleepLogService;
 import com.team11.backend.plans.domain.FirstEventKind;
 import com.team11.backend.plans.domain.Plan;
 import com.team11.backend.plans.domain.PlanFeedback;
 import com.team11.backend.plans.domain.PlanMode;
 import com.team11.backend.plans.domain.PlanStatus;
+import com.team11.backend.plans.dto.ExamSleepPlanRequest;
+import com.team11.backend.plans.dto.ExamSleepPlanView;
 import com.team11.backend.plans.dto.PlanFeedbackRequest;
 import com.team11.backend.plans.dto.PlanView;
 import com.team11.backend.plans.repository.PlanFeedbackRepository;
@@ -23,6 +29,7 @@ import com.team11.backend.plans.repository.PlanRepository;
 import com.team11.backend.timetable.config.SemesterProperties;
 import com.team11.backend.timetable.domain.DayOfWeek;
 import com.team11.backend.timetable.domain.TimetableEntry;
+import com.team11.backend.timetable.dto.SemesterListResponse.SemesterView;
 import com.team11.backend.timetable.dto.TimetableEntryView;
 import com.team11.backend.timetable.repository.TimetableEntryRepository;
 import com.team11.backend.users.domain.ConsentType;
@@ -55,10 +62,12 @@ public class PlanService {
     private final EventRepository eventRepository;
     private final SemesterProperties semesterProperties;
     private final AiClient aiClient;
+    private final SleepLogService sleepLogService;
 
     public PlanService(PlanRepository planRepository, PlanFeedbackRepository planFeedbackRepository,
                         UserRepository userRepository, TimetableEntryRepository timetableEntryRepository,
-                        EventRepository eventRepository, SemesterProperties semesterProperties, AiClient aiClient) {
+                        EventRepository eventRepository, SemesterProperties semesterProperties, AiClient aiClient,
+                        SleepLogService sleepLogService) {
         this.planRepository = planRepository;
         this.planFeedbackRepository = planFeedbackRepository;
         this.userRepository = userRepository;
@@ -66,6 +75,59 @@ public class PlanService {
         this.eventRepository = eventRepository;
         this.semesterProperties = semesterProperties;
         this.aiClient = aiClient;
+        this.sleepLogService = sleepLogService;
+    }
+
+    /** EXAM-08. AI-03 연동 — 시험 1건 기준 1회성 추천. plans 테이블에 저장하지 않는다(상태 없음, AI 서버와 대칭). */
+    public ExamSleepPlanView generateExamSleepPlan(Long userId, ExamSleepPlanRequest request) {
+        User user = findUser(userId);
+        requireHealthDataConsent(user);
+
+        OffsetDateTime now = OffsetDateTime.now(ASIA_SEOUL);
+        Event targetEvent = resolveTargetExam(userId, request.eventId());
+
+        OffsetDateTime horizon = targetEvent != null
+                ? Optional.ofNullable(targetEvent.getEndAt()).orElse(targetEvent.getStartAt())
+                : now.plusHours(72);
+        List<EventView> events = eventRepository.findOverlapping(userId, now.minusDays(7), horizon.plusDays(1))
+                .stream().map(EventView::from).limit(500).toList();
+
+        String semesterCode = resolveCurrentSemesterCode(now.toLocalDate());
+        List<TimetableEntryView> timetable = semesterCode == null ? List.of()
+                : timetableEntryRepository.findByUserIdAndSemesterOrderByDayOfWeekAscStartTimeAsc(userId, semesterCode)
+                        .stream().map(TimetableEntryView::from).toList();
+        List<SemesterView> semesters = semesterCode == null ? List.of()
+                : semesterProperties.semesters().stream()
+                        .filter(c -> c.code().equals(semesterCode))
+                        .map(c -> new SemesterView(c.code(), c.startDate(), c.endDate(), true))
+                        .toList();
+
+        List<SleepLogView> sleepLogs = sleepLogService
+                .list(userId, now.toLocalDate().minusDays(28), now.toLocalDate(), SleepLogStatus.CLOSED).logs();
+
+        AiExamSleepRequest.UserProfile profile = new AiExamSleepRequest.UserProfile(user.isOnboardingDone(), null,
+                new AiExamSleepRequest.Settings(user.getSleepNeedMin(), user.getSleepLatencyMin(),
+                        user.getMinSleepMin(), user.getCommuteMin(), user.getPrepMin(), user.getBufferMin(),
+                        user.getChronotype()));
+
+        AiExamSleepRequest aiRequest = AiExamSleepRequest.of(now, targetEvent != null ? targetEvent.getId() : null,
+                request.preparationState(), request.examNature(), profile, events, timetable, semesters, sleepLogs);
+
+        return ExamSleepPlanView.from(aiClient.examSleepPlan(aiRequest));
+    }
+
+    private Event resolveTargetExam(Long userId, Long eventId) {
+        if (eventId == null) {
+            return null;
+        }
+        Event event = eventRepository.findById(eventId).orElse(null);
+        if (event == null || event.getType() != EventType.EXAM) {
+            throw new ApiException(ErrorCode.EVENT_NOT_FOUND);
+        }
+        if (!event.isOwnedBy(userId)) {
+            throw new ApiException(ErrorCode.AUTH_FORBIDDEN);
+        }
+        return event;
     }
 
     public PlanView getTonightPlan(Long userId) {
