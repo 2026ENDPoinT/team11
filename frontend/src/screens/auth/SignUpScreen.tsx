@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Button, Field, Screen, Spacer, t } from '../../components/ui';
+import { setUser } from '../../store';
 
 // 0-2 회원가입 (14:55)
 export default function SignUpScreen() {
@@ -47,7 +48,14 @@ export default function SignUpScreen() {
       />
       {!!error && <Text style={t.error}>{error}</Text>}
       <Spacer />
-      <Button title="가입하기" disabled={!ok} onPress={() => navigation.navigate('Consent')} />
+      <Button
+        title="가입하기"
+        disabled={!ok}
+        onPress={() => {
+          setUser({ name, id, pw });
+          navigation.navigate('Consent');
+        }}
+      />
     </Screen>
   );
 }

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Button, C, Field, Pill, Screen, t } from '../../components/ui';
+import { setUser, useStore } from '../../store';
 
 const MAX_FAILS = 5;
 
 // 0 로그인 (14:4) + 0-1 로그인 실패·잠금 (14:30)
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const { user } = useStore();
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
   const [fails, setFails] = useState(0);
@@ -16,6 +18,7 @@ export default function LoginScreen() {
   const login = () => {
     // ponytail: 서버가 없어서 형식만 검사. 로그인 API 생기면 여기서 호출
     if (id && pw.length >= 8) {
+      setUser({ ...user, id, pw });
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } else {
       setFails(f => f + 1);
