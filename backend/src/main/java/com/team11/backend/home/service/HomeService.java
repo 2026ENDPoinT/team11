@@ -3,12 +3,14 @@ package com.team11.backend.home.service;
 import com.team11.backend.common.ErrorCode;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.events.domain.Event;
+import com.team11.backend.events.domain.EventType;
 import com.team11.backend.events.repository.EventRepository;
 import com.team11.backend.home.dto.HomeResponse;
 import com.team11.backend.home.dto.HomeResponse.BannerView;
 import com.team11.backend.home.dto.HomeResponse.HomeStreakView;
 import com.team11.backend.home.dto.HomeResponse.NextEventView;
 import com.team11.backend.home.dto.HomeResponse.OpenSleepLogView;
+import com.team11.backend.home.dto.HomeResponse.TipView;
 import com.team11.backend.home.dto.HomeResponse.TonightView;
 import com.team11.backend.home.dto.StreakView;
 import com.team11.backend.logs.domain.SleepLogStatus;
@@ -22,6 +24,7 @@ import com.team11.backend.timetable.config.SemesterProperties;
 import com.team11.backend.timetable.domain.DayOfWeek;
 import com.team11.backend.timetable.domain.TimetableEntry;
 import com.team11.backend.timetable.repository.TimetableEntryRepository;
+import com.team11.backend.tips.service.TipService;
 import com.team11.backend.users.domain.ConsentType;
 import com.team11.backend.users.domain.User;
 import com.team11.backend.users.dto.CharacterView;
@@ -42,6 +45,8 @@ public class HomeService {
     private static final ZoneId ASIA_SEOUL = ZoneId.of("Asia/Seoul");
     private static final int NEXT_EVENTS_LOOKAHEAD_DAYS = 14;
     private static final int NEXT_EVENTS_LIMIT = 5;
+    private static final int EXAM_SOON_LOOKAHEAD_DAYS = 2;
+    private static final int LATE_NIGHT_HOUR = 5;
 
     private final PlanService planService;
     private final StreakService streakService;
@@ -52,11 +57,13 @@ public class HomeService {
     private final SemesterProperties semesterProperties;
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final TipService tipService;
 
     public HomeService(PlanService planService, StreakService streakService, UserRepository userRepository,
                         SleepLogRepository sleepLogRepository, EventRepository eventRepository,
                         TimetableEntryRepository timetableEntryRepository, SemesterProperties semesterProperties,
-                        NotificationRepository notificationRepository, NotificationService notificationService) {
+                        NotificationRepository notificationRepository, NotificationService notificationService,
+                        TipService tipService) {
         this.planService = planService;
         this.streakService = streakService;
         this.userRepository = userRepository;
@@ -66,6 +73,7 @@ public class HomeService {
         this.semesterProperties = semesterProperties;
         this.notificationRepository = notificationRepository;
         this.notificationService = notificationService;
+        this.tipService = tipService;
     }
 
     public HomeResponse getHome(Long userId) {
@@ -92,9 +100,25 @@ public class HomeService {
         }
         long unreadNotifications = notificationRepository.countByUserIdAndReadAtIsNull(userId);
 
+        TipService.Tip tip = tipService.getTodayTip(userId, hasExamSoon(userId, now), isLateNight(tonightPlan));
+
         return new HomeResponse(now, tonight, nextEvents,
                 new HomeStreakView(streak.currentCount(), streak.bestCount(), streak.atRisk()),
-                CharacterView.from(user.getCharacter()), openSleepLog, null, (int) unreadNotifications, banners, null);
+                CharacterView.from(user.getCharacter()), openSleepLog, null, (int) unreadNotifications, banners,
+                new TipView(tip.id(), tip.text()));
+    }
+
+    /** 홈 캐릭터 말풍선 팁 선택용 — 모레까지 시험 일정이 있으면 "시험기간" 상황으로 본다. */
+    private boolean hasExamSoon(Long userId, OffsetDateTime now) {
+        OffsetDateTime rangeEnd = now.plusDays(EXAM_SOON_LOOKAHEAD_DAYS);
+        return eventRepository.findOverlapping(userId, now, rangeEnd).stream()
+                .anyMatch(event -> event.getType() == EventType.EXAM);
+    }
+
+    /** 취침 권장(또는 사용자 지정) 시각이 자정 넘어 새벽이면 "늦은 일정" 상황으로 본다. */
+    private boolean isLateNight(PlanView plan) {
+        OffsetDateTime bedAt = plan.userBedAt() != null ? plan.userBedAt() : plan.recommendedBedAt();
+        return bedAt.getHour() < LATE_NIGHT_HOUR;
     }
 
     private TonightView toTonightView(PlanView plan, OffsetDateTime now) {

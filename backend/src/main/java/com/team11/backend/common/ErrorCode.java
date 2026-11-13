@@ -28,6 +28,8 @@ public enum ErrorCode {
     DATE_RANGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 기간이 너무 길어요."),
     EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "일정이 없어요."),
     EVENT_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 일정은 이 필드를 수정할 수 없어요."),
+    EXAM_PERIOD_NOT_FOUND(HttpStatus.NOT_FOUND, "시험기간이 없어요."),
+    EXAM_PERIOD_OVERLAP(HttpStatus.CONFLICT, "기존 시험기간과 날짜가 겹쳐요."),
     PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 플랜이 없어요."),
     AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지금은 플랜을 만들 수 없어요. 잠시 후 다시 시도해 주세요."),
     SLEEP_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "수면 기록이 없어요."),
