@@ -124,4 +124,77 @@ class PlanControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("PLAN_NOT_FOUND"));
     }
+
+    @Test
+    void submitPlanFeedback_thenResubmit_overwritesLastValue() throws Exception {
+        String token = signupAndLogin("planfeedback1", true);
+
+        String tonight = mockMvc.perform(get("/api/v1/plans/tonight").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        Integer planId = com.jayway.jsonpath.JsonPath.read(tonight, "$.data.planId");
+
+        mockMvc.perform(post("/api/v1/plans/" + planId + "/feedback").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "rating": "TOO_LATE", "followed": false, "reason": "SOCIAL" }
+                                """))
+                .andExpect(status().isNoContent());
+
+        // 같은 플랜에 다시 보내면 마지막 값으로 덮어씀 (에러 없이 204)
+        mockMvc.perform(post("/api/v1/plans/" + planId + "/feedback").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "rating": "GOOD" }
+                                """))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void submitPlanFeedback_withoutRating_returnsValidationFailed() throws Exception {
+        String token = signupAndLogin("planfeedback2", true);
+
+        String tonight = mockMvc.perform(get("/api/v1/plans/tonight").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        Integer planId = com.jayway.jsonpath.JsonPath.read(tonight, "$.data.planId");
+
+        mockMvc.perform(post("/api/v1/plans/" + planId + "/feedback").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void submitPlanFeedback_onOtherUsersPlan_returnsForbidden() throws Exception {
+        String ownerToken = signupAndLogin("planfeedowner1", true);
+        String otherToken = signupAndLogin("planfeedother1", true);
+
+        String tonight = mockMvc.perform(get("/api/v1/plans/tonight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        Integer planId = com.jayway.jsonpath.JsonPath.read(tonight, "$.data.planId");
+
+        mockMvc.perform(post("/api/v1/plans/" + planId + "/feedback").header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "rating": "GOOD" }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    void submitPlanFeedback_onMissingPlan_returnsPlanNotFound() throws Exception {
+        String token = signupAndLogin("planfeedmissing1", true);
+
+        mockMvc.perform(post("/api/v1/plans/999999/feedback").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "rating": "GOOD" }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("PLAN_NOT_FOUND"));
+    }
 }

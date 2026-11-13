@@ -15,6 +15,7 @@
 --                   Devices / Notifications (devices, notifications) — V7
 --                   Logs 확장: 웨어러블(애플워치/갤럭시워치) 수면 단계 (sleep_stages) — V8
 --                   Exam (exam_periods, exam_period_exams) — V9
+--                   Plans 확장: 플랜 피드백(PLAN-06, plan_feedbacks) — V10
 -- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
 -- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
 -- Tips도 테이블 없이 코드에 하드코딩된 고정 문구만 씀(홈 캐릭터 말풍선용, CLAUDE.md §10 참고).
@@ -266,6 +267,19 @@ CREATE TABLE exam_period_exams (
     difficulty          SMALLINT NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
     study_hours_needed  SMALLINT NOT NULL CHECK (study_hours_needed BETWEEN 0 AND 100),
     CONSTRAINT uq_exam_period_exams UNIQUE (exam_period_id, event_id)
+);
+
+-- V10__plan_feedback.sql -----------------------------------------------------
+-- PLAN-06 플랜 피드백. 매일 앱을 처음 열 때 전날 플랜이 어땠는지 물어보는 용도(사용자 요청,
+-- 2026-11-13). 플랜 하나당 한 건(덮어쓰기)이라 plan_id를 PK로 둔다.
+
+CREATE TABLE plan_feedbacks (
+    plan_id    BIGINT PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
+    rating     VARCHAR(10) NOT NULL,
+    followed   BOOLEAN,
+    reason     VARCHAR(10),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- =====================================================================
