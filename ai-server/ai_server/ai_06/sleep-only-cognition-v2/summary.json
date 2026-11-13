@@ -1,0 +1,36 @@
+{
+  "selected": "tree3",
+  "target": "pvt_lapse_score",
+  "validation": {
+    "median": {
+      "participant_macro_mae": 3.281577184007539,
+      "pooled_mae": 3.1536415270608957,
+      "pooled_rmse": 6.255813725285272,
+      "rows": 1987,
+      "participants": 91
+    },
+    "old_tree": {
+      "participant_macro_mae": 3.267296299638801,
+      "pooled_mae": 3.1597643218858495,
+      "pooled_rmse": 6.028931007309103,
+      "rows": 1987,
+      "participants": 91
+    },
+    "tree3": {
+      "participant_macro_mae": 3.256591233920337,
+      "pooled_mae": 3.1488889597116794,
+      "pooled_rmse": 6.030464829625313,
+      "rows": 1987,
+      "participants": 91
+    }
+  },
+  "sleep_minus_median_mae_ci95": [
+    -0.13703560642276327,
+    0.07945265473527918
+  ],
+  "sleep_minus_median_mae": -0.02498595008720229,
+  "deployment_ready": false,
+  "test_evaluated": false,
+  "sleep_value_supported_on_validation": false,
+  "chennai_existing_models_modified": false
+}

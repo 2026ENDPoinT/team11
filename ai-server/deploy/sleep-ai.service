@@ -1,0 +1,25 @@
+[Unit]
+Description=SLEEP AI server
+After=network.target
+
+[Service]
+Type=simple
+User=sleep-ai
+WorkingDirectory=/opt/sleep
+EnvironmentFile=/etc/sleep-ai.env
+Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+ExecStart=/opt/sleep/.venv/bin/python -B -X utf8 -m ai_server --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillMode=control-group
+MemoryMax=512M
+CPUQuota=200%
+TasksMax=64
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

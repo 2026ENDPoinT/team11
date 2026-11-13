@@ -1,0 +1,274 @@
+{
+  "result": {
+    "contractVersion": "EXAM_SLEEP_MINIMAL_V1",
+    "status": "READY",
+    "sourceRevision": 43,
+    "inputHash": "e111d47504bc72c214dba341c46dab42d70b7d3812452d88845ea1d7835305ba",
+    "artifactHash": "9be52ccfe309f84639bd101b14c0d59bbe4d8e0a8a52a95303ec1de5dd132c26",
+    "parameterHash": "b523fd75a71b2a0b933a399ad1282e1b172989252d17916d666a0f365619613d",
+    "scenarioHash": "3eb57c5bf311c236d77c92398f89491e70854381a79b4968e7344cfdcfbed710",
+    "policyVersion": "workload-balanced-2",
+    "objectiveScope": "EXAM_BENEFIT_VIA_UNCALIBRATED_MEMORY_AND_STATE",
+    "selected": {
+      "candidateKey": "duration-end-15",
+      "strategy": "MAIN_ONLY",
+      "cycleMode": "OFF",
+      "timeline": [
+        {
+          "kind": "STUDY_AVAILABLE",
+          "startAt": "2026-11-13T17:00:00+09:00",
+          "endAt": "2026-11-13T18:00:00+09:00"
+        },
+        {
+          "kind": "FIXED",
+          "startAt": "2026-11-13T18:00:00+09:00",
+          "endAt": "2026-11-13T19:00:00+09:00"
+        },
+        {
+          "kind": "MAIN_SLEEP",
+          "startAt": "2026-11-13T19:00:00+09:00",
+          "endAt": "2026-11-13T23:45:00+09:00"
+        },
+        {
+          "kind": "WAKE_BUFFER",
+          "startAt": "2026-11-13T23:45:00+09:00",
+          "endAt": "2026-11-14T00:15:00+09:00"
+        },
+        {
+          "kind": "STUDY_AVAILABLE",
+          "startAt": "2026-11-14T00:15:00+09:00",
+          "endAt": "2026-11-14T07:20:00+09:00"
+        },
+        {
+          "kind": "FIXED",
+          "startAt": "2026-11-14T07:20:00+09:00",
+          "endAt": "2026-11-14T09:00:00+09:00"
+        }
+      ],
+      "totals": {
+        "sleepOpportunityMin": 285.0,
+        "studyAvailableMin": 485.0,
+        "fixedMin": 160.0,
+        "wakeBufferMin": 30.0,
+        "restMin": 0.0
+      },
+      "actualSleepMinScenarioRange": {
+        "min": 228.6,
+        "max": 258.6
+      },
+      "internalUtilityScenarioRange": {
+        "min": 0.038456232765327426,
+        "max": 0.7880692860490124
+      },
+      "workloadAssessment": {
+        "status": "SOME_ASSUMPTIONS",
+        "remainingFocusedHoursRange": {
+          "min": 0,
+          "max": 7.302424912036153
+        },
+        "effectiveStudyHoursRange": {
+          "min": 0.697575087963847,
+          "max": 6.449235326772449
+        },
+        "newMaterialCoverageRange": {
+          "min": 0.07168377979758668,
+          "max": 1.0
+        },
+        "scope": "UNCALIBRATED_WORK_BUDGET_NOT_MASTERY_OR_FINISH_PROBABILITY",
+        "scenarioShareIsProbability": false
+      },
+      "worstCaseRegret": 0.21232302243587464
+    },
+    "alternative": {
+      "candidateKey": "candidate-0",
+      "strategy": "MAIN_ONLY",
+      "cycleMode": "OFF",
+      "timeline": [
+        {
+          "kind": "STUDY_AVAILABLE",
+          "startAt": "2026-11-13T17:00:00+09:00",
+          "endAt": "2026-11-13T18:00:00+09:00"
+        },
+        {
+          "kind": "FIXED",
+          "startAt": "2026-11-13T18:00:00+09:00",
+          "endAt": "2026-11-13T19:00:00+09:00"
+        },
+        {
+          "kind": "STUDY_AVAILABLE",
+          "startAt": "2026-11-13T19:00:00+09:00",
+          "endAt": "2026-11-13T23:15:00+09:00"
+        },
+        {
+          "kind": "MAIN_SLEEP",
+          "startAt": "2026-11-13T23:15:00+09:00",
+          "endAt": "2026-11-14T07:00:00+09:00"
+        },
+        {
+          "kind": "WAKE_BUFFER",
+          "startAt": "2026-11-14T07:00:00+09:00",
+          "endAt": "2026-11-14T07:20:00+09:00"
+        },
+        {
+          "kind": "FIXED",
+          "startAt": "2026-11-14T07:20:00+09:00",
+          "endAt": "2026-11-14T09:00:00+09:00"
+        }
+      ],
+      "totals": {
+        "sleepOpportunityMin": 465.0,
+        "studyAvailableMin": 315.0,
+        "fixedMin": 160.0,
+        "wakeBufferMin": 20.0,
+        "restMin": 0.0
+      },
+      "actualSleepMinScenarioRange": {
+        "min": 405.0,
+        "max": 435.0
+      },
+      "internalUtilityScenarioRange": {
+        "min": 0.03384879932474077,
+        "max": 0.7134620997654683
+      },
+      "workloadAssessment": {
+        "status": "SOME_ASSUMPTIONS",
+        "remainingFocusedHoursRange": {
+          "min": 0,
+          "max": 7.6560632397602895
+        },
+        "effectiveStudyHoursRange": {
+          "min": 0.2958913296332018,
+          "max": 4.200000000000001
+        },
+        "newMaterialCoverageRange": {
+          "min": 0.023296437390484117,
+          "max": 1.0
+        },
+        "scope": "UNCALIBRATED_WORK_BUDGET_NOT_MASTERY_OR_FINISH_PROBABILITY",
+        "scenarioShareIsProbability": false
+      },
+      "worstCaseRegret": 0.7404729743030826
+    },
+    "comparison": {
+      "baselineKey": "candidate-0",
+      "assessment": "UNCERTAIN",
+      "scenarioDeltaRange": {
+        "min": -0.045322801768097415,
+        "max": 0.2888902808070972
+      },
+      "scenarioShareIsProbability": false
+    },
+    "reasonCodes": [
+      "ROBUST_SLEEP_STUDY_BALANCE",
+      "WORKLOAD_UNCERTAIN",
+      "SHORT_SLEEP_TRADEOFF",
+      "SHIFTED_SLEEP_TIMING",
+      "EXAM_PREPARATION_RESERVED"
+    ],
+    "reasons": [
+      "안 자는 안과 짧게 자는 안까지 비교해, 남은 공부와 시험 중 기억·수행 손실을 함께 고려했어요.",
+      "분량·난이도를 정확히 측정하지 않아 공부를 끝낼 수 있는지는 가정에 따라 달라져요.",
+      "공부 시간을 남기기 위해 수면 기회를 줄인 절충안이에요. 충분한 수면이나 시험 후 회복으로 시험 당시 손실이 없어짐을 뜻하지 않아요.",
+      "평소 취침 시각과 크게 달라 실제로 그때 잠들기 어려울 수 있어요.",
+      "시험 전 준비와 이동 시간을 비워 두었어요."
+    ],
+    "warnings": [
+      "AGE_BAND_UNVERIFIED",
+      "CAFFEINE_UNOBSERVED",
+      "CALENDAR_INCOMPLETE",
+      "CYCLE_ADJUSTMENT_DISABLED",
+      "ENGINEERING_RANGES_NOT_PROBABILITIES",
+      "HABITUAL_TIMING_DERIVED_FROM_HISTORY",
+      "INSUFFICIENT_SLEEP_TRADEOFF",
+      "LEGACY_SLEEP_MINIMUM_IGNORED",
+      "PARTIAL_SLEEP_HISTORY",
+      "SLEEP_TIMING_FEASIBILITY_UNCERTAIN",
+      "TARGET_EFFECT_NOT_VALIDATED",
+      "WORKLOAD_NOT_MEASURED"
+    ],
+    "quality": {
+      "cycleEligible": false,
+      "cycleMode": "OFF",
+      "cycleEligibleNights": 0,
+      "cycleModelHash": "00902963be1e969195288d1bc007f9c5007515c2fae6b240a0cbf46b3fb29194",
+      "targetCalibration": "NOT_EVALUATED",
+      "shortSleepDoseCalibration": "NOT_IDENTIFIED"
+    },
+    "diagnostics": {
+      "selectionRule": "RELATIVE_MINIMAX_REGRET_WITH_NEAR_TIE_BASELINE",
+      "regretScale": "RELATIVE_TO_SCENARIO_BEST_WITH_0_05_FLOOR",
+      "scenarioCount": 256,
+      "candidateCount": 5,
+      "integrationStepMin": 15,
+      "maxWakeHoursAssumingScheduledSleep": 12.0,
+      "candidateRegrets": [
+        {
+          "candidateKey": "candidate-0",
+          "regret": 0.7404729743030826
+        },
+        {
+          "candidateKey": "candidate-2",
+          "regret": 0.7279614727949694
+        },
+        {
+          "candidateKey": "candidate-34",
+          "regret": 0.22629530845124773
+        },
+        {
+          "candidateKey": "candidate-32",
+          "regret": 0.25644346254097444
+        },
+        {
+          "candidateKey": "duration-end-15",
+          "regret": 0.21232302243587464
+        }
+      ],
+      "generatedLayouts": 107,
+      "assessedLayoutLimit": 40,
+      "searchScope": "FINITE_STRATEGY_PRESERVING_POOL",
+      "searchComplete": false,
+      "sleepMinimumEnforced": false,
+      "wakeLimitEnforced": false
+    },
+    "evidence": {
+      "sourceArtifactVersion": "minimal-sleep-source-v1",
+      "sourceFitStatus": "OFFLINE_SOURCE_REFITTED",
+      "learningSource": "SIEFERT2024_LEARNING_TRIALS",
+      "learningTest": {
+        "logLoss": 0.6224229100512687,
+        "brier": 0.21603610258465988
+      },
+      "sleepStudies": 39,
+      "targetValidation": "NOT_EVALUATED",
+      "cyclePrior": "ENGINEERING_COARSE_DURATION_PRIOR_NOT_PSG_TRAINED",
+      "licenses": {
+        "meta": "OSF_NODE_LICENSE_UNSPECIFIED_RESEARCH_USE_REVIEW_REQUIRED",
+        "learning": "PUBLIC_REPOSITORY_NO_EXPLICIT_DATA_LICENSE_RESEARCH_USE_REVIEW_REQUIRED"
+      },
+      "assumptions": [
+        "PREPARATION_RANGES",
+        "UNVALIDATED_REMAINING_WORK_HOURS",
+        "STUDY_RATE_AND_DUTY",
+        "PVT_TO_MEMORY_TRANSFER",
+        "RECENT_SLEEP_DOSE_PROXY_NOT_FITTED_CURVE",
+        "POST_ENCODING_COMPOSITE",
+        "CIRCADIAN_PHASE_PROXY",
+        "EXAM_MIDPOINT_STATE_PROXY"
+      ]
+    },
+    "workload": {
+      "source": "READINESS_ENGINEERING_RANGE",
+      "remainingFocusedHoursRange": {
+        "min": 2,
+        "max": 8
+      },
+      "measured": false,
+      "completionProbability": null,
+      "postExamRecoveryCredited": false
+    },
+    "predictedExamScore": null,
+    "individualSuccessProbability": null,
+    "estimatedRecalledItems": null
+  },
+  "modelVersion": "exam-sleep-workload-2.0.0"
+}

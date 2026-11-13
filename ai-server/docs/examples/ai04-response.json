@@ -1,0 +1,282 @@
+{
+  "result": {
+    "schemaVersion": "0.1",
+    "ruleVersion": "opportunity-v4-history-calendar",
+    "asOfDate": "2026-11-09",
+    "sleepSummary": {
+      "metric": "target_night_sleep_shortfall",
+      "windowStart": "2026-11-03",
+      "windowEnd": "2026-11-09",
+      "windowDays": 7,
+      "recordedDays": 5,
+      "missingDates": [
+        "2026-11-03",
+        "2026-11-04"
+      ],
+      "coverageFraction": 0.7143,
+      "dataStatus": "partial",
+      "shortfallMinutes": 300,
+      "aboveTargetMinutes": 30,
+      "napMinutes": 20,
+      "ignoredOlderRecords": 0,
+      "daily": [
+        {
+          "date": "2026-11-05",
+          "targetMinutes": 480,
+          "targetSource": "record",
+          "actualNightSleepMinutes": 360,
+          "napMinutes": 0,
+          "shortfallMinutes": 120,
+          "aboveTargetMinutes": 0
+        },
+        {
+          "date": "2026-11-06",
+          "targetMinutes": 480,
+          "targetSource": "record",
+          "actualNightSleepMinutes": 420,
+          "napMinutes": 0,
+          "shortfallMinutes": 60,
+          "aboveTargetMinutes": 0
+        },
+        {
+          "date": "2026-11-07",
+          "targetMinutes": 480,
+          "targetSource": "record",
+          "actualNightSleepMinutes": 510,
+          "napMinutes": 0,
+          "shortfallMinutes": 0,
+          "aboveTargetMinutes": 30
+        },
+        {
+          "date": "2026-11-08",
+          "targetMinutes": 480,
+          "targetSource": "record",
+          "actualNightSleepMinutes": 390,
+          "napMinutes": 20,
+          "shortfallMinutes": 90,
+          "aboveTargetMinutes": 0
+        },
+        {
+          "date": "2026-11-09",
+          "targetMinutes": 480,
+          "targetSource": "record",
+          "actualNightSleepMinutes": 450,
+          "napMinutes": 0,
+          "shortfallMinutes": 30,
+          "aboveTargetMinutes": 0
+        }
+      ],
+      "physiologicalDebtMinutes": null,
+      "estimatedRecoveryCompletion": null,
+      "ruleIds": [
+        "PRODUCT_SHORTFALL_ACCOUNTING",
+        "E_HISTORY",
+        "E_NO_LINEAR_REPAYMENT"
+      ]
+    },
+    "events": [
+      {
+        "title": "중간고사 대비 스터디",
+        "leadMinutes": 0,
+        "userOverride": {
+          "movability": "flexible"
+        },
+        "id": "study-1",
+        "start": "2026-11-09T23:00:00+09:00",
+        "end": "2026-11-10T01:00:00+09:00",
+        "labels": {
+          "type": "study",
+          "focusDemand": "medium",
+          "movability": "flexible",
+          "source": "keyword_baseline",
+          "errorType": null,
+          "fieldSources": {
+            "type": "keyword_baseline",
+            "focusDemand": "keyword_baseline",
+            "movability": "user"
+          },
+          "promptVersion": "labels-v1"
+        }
+      },
+      {
+        "title": "자료구조 중간고사",
+        "labels": {
+          "type": "exam",
+          "focusDemand": "high",
+          "movability": "fixed",
+          "source": "keyword_baseline",
+          "errorType": null,
+          "fieldSources": {
+            "type": "keyword_baseline",
+            "focusDemand": "keyword_baseline",
+            "movability": "provided"
+          },
+          "promptVersion": "labels-v1"
+        },
+        "id": "exam-1",
+        "start": "2026-11-10T09:00:00+09:00",
+        "end": "2026-11-10T11:00:00+09:00"
+      },
+      {
+        "title": "오후 수업",
+        "labels": {
+          "type": "class",
+          "focusDemand": "medium",
+          "movability": "fixed",
+          "source": "keyword_baseline",
+          "errorType": null,
+          "fieldSources": {
+            "type": "keyword_baseline",
+            "focusDemand": "keyword_baseline",
+            "movability": "provided"
+          },
+          "promptVersion": "labels-v1"
+        },
+        "id": "class-1",
+        "start": "2026-11-11T13:00:00+09:00",
+        "end": "2026-11-11T15:00:00+09:00"
+      },
+      {
+        "title": "인턴 면접",
+        "labels": {
+          "type": "presentation_interview",
+          "focusDemand": "high",
+          "movability": "fixed",
+          "source": "keyword_baseline",
+          "errorType": null,
+          "fieldSources": {
+            "type": "keyword_baseline",
+            "focusDemand": "keyword_baseline",
+            "movability": "provided"
+          },
+          "promptVersion": "labels-v1"
+        },
+        "id": "interview-1",
+        "start": "2026-11-12T09:00:00+09:00",
+        "end": "2026-11-12T10:00:00+09:00"
+      }
+    ],
+    "recoveryPlan": {
+      "method": "greedy_nightly_grid_search",
+      "plans": [
+        {
+          "wakeDate": "2026-11-10",
+          "status": "requires_rescheduling",
+          "bedtime": "2026-11-09T22:30+09:00",
+          "wakeTime": "2026-11-10T07:00+09:00",
+          "timeInBedMinutes": 510,
+          "assumedSleepLatencyMinutes": 20,
+          "plannedSleepCapacityMinutes": 490,
+          "targetMinutes": 480,
+          "desiredSleepCapacityMinutes": 480,
+          "requestedAdditionalOpportunityMinutes": null,
+          "additionalSleepStatus": "deferred_insufficient_history",
+          "movabilityConfirmationRequests": [],
+          "plannedTargetShortfallMinutes": 0,
+          "additionalOpportunityMinutes": 10,
+          "unmetAdditionalOpportunityMinutes": null,
+          "gridRoundingExtraMinutes": 10,
+          "priorityEventIds": [
+            "exam-1"
+          ],
+          "requiresReschedulingIds": [
+            "study-1"
+          ],
+          "ruleIds": [
+            "E_HISTORY",
+            "E_NO_LINEAR_REPAYMENT",
+            "PRODUCT_TARGET_FIRST",
+            "PRODUCT_FLEXIBLE_EVENT_COST",
+            "PRODUCT_PREFERENCE_TIEBREAK",
+            "PRODUCT_HISTORY_REQUIRED_FOR_EXTRA"
+          ]
+        },
+        {
+          "wakeDate": "2026-11-11",
+          "status": "target_met",
+          "bedtime": "2026-11-10T22:30+09:00",
+          "wakeTime": "2026-11-11T07:00+09:00",
+          "timeInBedMinutes": 510,
+          "assumedSleepLatencyMinutes": 20,
+          "plannedSleepCapacityMinutes": 490,
+          "targetMinutes": 480,
+          "desiredSleepCapacityMinutes": 480,
+          "requestedAdditionalOpportunityMinutes": null,
+          "additionalSleepStatus": "deferred_insufficient_history",
+          "movabilityConfirmationRequests": [],
+          "plannedTargetShortfallMinutes": 0,
+          "additionalOpportunityMinutes": 10,
+          "unmetAdditionalOpportunityMinutes": null,
+          "gridRoundingExtraMinutes": 10,
+          "priorityEventIds": [],
+          "requiresReschedulingIds": [],
+          "ruleIds": [
+            "E_HISTORY",
+            "E_NO_LINEAR_REPAYMENT",
+            "PRODUCT_TARGET_FIRST",
+            "PRODUCT_FLEXIBLE_EVENT_COST",
+            "PRODUCT_PREFERENCE_TIEBREAK",
+            "PRODUCT_HISTORY_REQUIRED_FOR_EXTRA"
+          ]
+        },
+        {
+          "wakeDate": "2026-11-12",
+          "status": "target_met",
+          "bedtime": "2026-11-11T22:30+09:00",
+          "wakeTime": "2026-11-12T07:00+09:00",
+          "timeInBedMinutes": 510,
+          "assumedSleepLatencyMinutes": 20,
+          "plannedSleepCapacityMinutes": 490,
+          "targetMinutes": 480,
+          "desiredSleepCapacityMinutes": 480,
+          "requestedAdditionalOpportunityMinutes": null,
+          "additionalSleepStatus": "deferred_insufficient_history",
+          "movabilityConfirmationRequests": [],
+          "plannedTargetShortfallMinutes": 0,
+          "additionalOpportunityMinutes": 10,
+          "unmetAdditionalOpportunityMinutes": null,
+          "gridRoundingExtraMinutes": 10,
+          "priorityEventIds": [
+            "interview-1"
+          ],
+          "requiresReschedulingIds": [],
+          "ruleIds": [
+            "E_HISTORY",
+            "E_NO_LINEAR_REPAYMENT",
+            "PRODUCT_TARGET_FIRST",
+            "PRODUCT_FLEXIBLE_EVENT_COST",
+            "PRODUCT_PREFERENCE_TIEBREAK",
+            "PRODUCT_HISTORY_REQUIRED_FOR_EXTRA"
+          ]
+        }
+      ],
+      "movabilityConfirmationRequests": [],
+      "extraOpportunityPolicyMinutes": null,
+      "policy": {
+        "mode": "baseline_only",
+        "observedShortfallMinutes": 300,
+        "recordedDays": 5,
+        "windowDays": 7,
+        "dataStatus": "partial",
+        "requestedExtraMinutesPerNight": null,
+        "additionalSleepStatus": "deferred_insufficient_history",
+        "needsRecordCompletion": true,
+        "doseBasis": "not_estimated_incomplete_history",
+        "ruleIds": [
+          "PRODUCT_HISTORY_REQUIRED_FOR_EXTRA"
+        ],
+        "modelUnavailableReason": "INCOMPLETE_HISTORY_MODEL_UNAVAILABLE"
+      },
+      "recoveryCompletion": null,
+      "interpretation": "수면 기회를 배치한 계획이며 실제 수면량·회복 완료 예측이 아닙니다."
+    },
+    "warnings": [
+      "NOT_A_PHYSIOLOGICAL_DEBT_MODEL",
+      "CALENDAR_COVERAGE_NOT_VERIFIED",
+      "ADDITIONAL_SLEEP_DEFERRED_INCOMPLETE_HISTORY",
+      "INCOMPLETE_SLEEP_RECORDS",
+      "SOME_LABELS_ARE_NOT_LLM_OUTPUT"
+    ]
+  },
+  "modelVersion": "sleep-coach-v4-history-calendar"
+}

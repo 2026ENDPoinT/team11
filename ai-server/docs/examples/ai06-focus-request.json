@@ -1,0 +1,14 @@
+{
+  "contractVersion": "FOCUS_SLEEP_V1",
+  "asOfAt": "2026-11-13T23:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "wakeDeadlineAt": "2026-11-14T07:00:00+09:00",
+  "minInBedMinutes": 360,
+  "maxInBedMinutes": 480,
+  "history": [
+    {"wakeDate":"2026-11-10","bedtime":"23:00","wakeTime":"07:00","asleepMinutes":420,"latencyMinutes":30},
+    {"wakeDate":"2026-11-11","bedtime":"23:00","wakeTime":"07:00","asleepMinutes":420,"latencyMinutes":30},
+    {"wakeDate":"2026-11-12","bedtime":"23:00","wakeTime":"07:00","asleepMinutes":420,"latencyMinutes":30},
+    {"wakeDate":"2026-11-13","bedtime":"23:00","wakeTime":"07:00","asleepMinutes":420,"latencyMinutes":30}
+  ]
+}

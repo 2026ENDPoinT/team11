@@ -1,0 +1,29 @@
+services:
+  ai:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    mem_limit: 512m
+    cpus: 2
+    pids_limit: 64
+    stop_grace_period: 10s
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AI_INTERNAL_KEY: ${AI_INTERNAL_KEY:?Set AI_INTERNAL_KEY}
+      SLEEP_WORKERS: "2"
+      SLEEP_CONNECTIONS: "32"
+      SLEEP_TIMEOUT_SECONDS: "2.5"
+      SLEEP_EXAM_TIMEOUT_SECONDS: "10"
+      SLEEP_MEMORY_TIMEOUT_SECONDS: "10"
+    healthcheck:
+      test: ["CMD", "python", "-B", "-S", "-c", "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/ai/v1/ready',headers={'X-Internal-Key':os.environ['AI_INTERNAL_KEY']}); urllib.request.urlopen(r,timeout=5).close()"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 30s

@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.env
+*.key
+*.pem
+*.pfx
+*.log
+.venv/
+data/ai06/raw/
+reports/ai07/*.npz
+data/ai07/research/

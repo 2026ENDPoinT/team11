@@ -1,0 +1,83 @@
+{
+  "contractVersion": "EXAM_SLEEP_MINIMAL_V1",
+  "asOfAt": "2026-11-13T17:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "populationScope": "ADULT_VERIFIED",
+  "sourceRevision": 43,
+  "target": {
+    "key": "exam-x1",
+    "startsAt": "2026-11-14T09:00:00+09:00",
+    "examNature": "RECALL"
+  },
+  "preparation": {
+    "state": "SEEN_NOT_RECALLABLE",
+    "assessedAt": "2026-11-13T16:59:00+09:00",
+    "wordingVersion": "readiness-copy-1"
+  },
+  "profile": {
+    "usualBedtime": "00:30",
+    "usualWakeTime": "07:30",
+    "sleepNeedMin": 465,
+    "sleepLatencyMin": 15,
+    "minMainSleepOpportunityMin": 0,
+    "commuteMin": 40,
+    "prepMin": 50,
+    "bufferMin": 10,
+    "provenance": {
+      "habitualNights": 12,
+      "basis": "OBSERVED_SLEEP_TIMING",
+      "sleepNeedBasis": "LEGACY_SETTING"
+    }
+  },
+  "historyCoverage": {
+    "startAt": "2026-10-30T00:00:00+09:00",
+    "endAt": "2026-11-13T17:00:00+09:00",
+    "state": "PARTIAL",
+    "lastSyncedAt": "2026-11-13T16:30:00+09:00"
+  },
+  "sleepHistory": [
+    {
+      "key": "sleep-x1",
+      "startAt": "2026-11-13T00:00:00+09:00",
+      "endAt": "2026-11-13T07:00:00+09:00",
+      "basis": "ASLEEP_ESTIMATE",
+      "asleepDurationMin": 390,
+      "sessionKind": "MAIN",
+      "deviceFamily": "APPLE_WATCH",
+      "stageCoverage": 0.1071428571,
+      "stages": [
+        {
+          "stage": "LIGHT",
+          "startAt": "2026-11-13T00:15:00+09:00",
+          "endAt": "2026-11-13T01:00:00+09:00"
+        }
+      ]
+    }
+  ],
+  "fixedIntervals": [
+    {
+      "key": "obligation-x1",
+      "startAt": "2026-11-13T18:00:00+09:00",
+      "endAt": "2026-11-13T19:00:00+09:00",
+      "kind": "OBLIGATION"
+    },
+    {
+      "key": "exam-prep-x1",
+      "startAt": "2026-11-14T07:20:00+09:00",
+      "endAt": "2026-11-14T09:00:00+09:00",
+      "kind": "PREPARATION_TRAVEL"
+    }
+  ],
+  "constraints": {
+    "napPolicy": "OPTIONAL_ONLY",
+    "napWindows": [],
+    "policyVersion": "workload-balanced-2",
+    "experimentalSplit": false,
+    "calendarState": "SYNCED"
+  },
+  "optionalObservations": {
+    "caffeineState": "UNKNOWN",
+    "caffeineEvents": []
+  },
+  "randomSeed": 20261113
+}

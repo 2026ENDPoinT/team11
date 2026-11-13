@@ -1,0 +1,133 @@
+{
+  "selected": "tree3",
+  "oof_leaderboard": [
+    {
+      "candidate": "median",
+      "participant_macro_mae": 3.3430056244702757,
+      "pooled_mae": 3.3015249800955955,
+      "pooled_rmse": 5.671219527429315,
+      "rows": 5858,
+      "participants": 270
+    },
+    {
+      "candidate": "old_tree",
+      "participant_macro_mae": 3.288655491325245,
+      "pooled_mae": 3.25547585382508,
+      "pooled_rmse": 5.530960684180317,
+      "rows": 5858,
+      "participants": 270
+    },
+    {
+      "candidate": "ridge100",
+      "participant_macro_mae": 3.5350663381835123,
+      "pooled_mae": 3.5027817632186835,
+      "pooled_rmse": 5.299263499778207,
+      "rows": 5858,
+      "participants": 270
+    },
+    {
+      "candidate": "spline100",
+      "participant_macro_mae": 3.5320100929068823,
+      "pooled_mae": 3.4995779443927955,
+      "pooled_rmse": 5.301710413938742,
+      "rows": 5858,
+      "participants": 270
+    },
+    {
+      "candidate": "tree3",
+      "participant_macro_mae": 3.266192261179532,
+      "pooled_mae": 3.232390476231775,
+      "pooled_rmse": 5.577136761486668,
+      "rows": 5858,
+      "participants": 270
+    },
+    {
+      "candidate": "tree7",
+      "participant_macro_mae": 3.281088856499679,
+      "pooled_mae": 3.24885104378576,
+      "pooled_rmse": 5.531139216423915,
+      "rows": 5858,
+      "participants": 270
+    }
+  ],
+  "model_hashes": {
+    "median": "a29b4305230061c284b49fcd2597666efca354804991e8eb052424ddf50a8a64",
+    "old_tree": "3a24130ea60ca445741f164812105fede738f6aa1ab3ac6af6d2a7fe19fb192d",
+    "ridge100": "cfacda2951470a7f805b902533aa0fa86e9d9fbfb2a2cc823d1f5b6ba57c4d04",
+    "spline100": "50db9060c170fdd253e631f545bb4a459029573563676775abb23870fb7df9fd",
+    "tree3": "c3db2139c402daeff087bf726f735eb46efe1c67a4974c16220cfe5cf8752426",
+    "tree7": "addce1954ff7643c3ad9356fc988bdb191511c797d4b1bc0b5fff62657b268dd"
+  },
+  "train_rows": 5858,
+  "train_participants": 270,
+  "train_feature_ranges": {
+    "sleep_hours": [
+      0.62,
+      10.42
+    ],
+    "inbed_hours": [
+      2.38,
+      14.33
+    ],
+    "latency_minutes": [
+      0.0,
+      152.0
+    ],
+    "efficiency_pct": [
+      15.74,
+      97.69
+    ],
+    "waso_hours": [
+      0.08,
+      7.6
+    ],
+    "awakening_count": [
+      3.0,
+      79.0
+    ],
+    "onset_sin": [
+      -0.999914327574007,
+      0.9940563382223196
+    ],
+    "onset_cos": [
+      -0.22495105434386525,
+      1.0
+    ],
+    "wake_sin": [
+      0.18652403600873463,
+      0.9999904807207345
+    ],
+    "wake_cos": [
+      -0.9824503977255097,
+      0.9099612708765432
+    ],
+    "prior_3d_sleep_mean": [
+      1.773333191871643,
+      9.359999656677246
+    ],
+    "prior_3d_sleep_std": [
+      0.009428082033991814,
+      3.895350456237793
+    ],
+    "prior_7d_sleep_mean": [
+      2.117142915725708,
+      8.824285507202148
+    ],
+    "prior_7d_sleep_std": [
+      0.10291657596826553,
+      3.216792583465576
+    ],
+    "duration_delta_3d": [
+      -6.213333492279053,
+      4.253333663940429
+    ],
+    "duration_delta_7d": [
+      -5.997142677307129,
+      4.072857112884522
+    ],
+    "sleep_8d_total_with_current": [
+      18.56999957084656,
+      70.90999786376953
+    ]
+  }
+}

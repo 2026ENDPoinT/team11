@@ -1,0 +1,22 @@
+{
+  "result": {
+    "recommendedBedAt": "2026-11-10T23:15:00+09:00",
+    "recommendedWakeAt": "2026-11-11T07:15:00+09:00",
+    "sleepMin": 465,
+    "breakdown": {
+      "commuteMin": 40,
+      "prepMin": 50,
+      "bufferMin": 10,
+      "sleepNeedMin": 465,
+      "sleepLatencyMin": 15
+    },
+    "reasons": [
+      "첫 일정과 준비·통학 시간을 고려했어요.",
+      "수면 압력과 수면 습관을 함께 고려했어요."
+    ],
+    "warnings": [
+      "관측되지 않은 수면 중 각성은 추정하지 않았어요."
+    ]
+  },
+  "modelVersion": "ai02-normal-v1"
+}
