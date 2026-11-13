@@ -25,6 +25,8 @@ public enum ErrorCode {
     TIMETABLE_OVERLAP(HttpStatus.CONFLICT, "같은 시간에 이미 등록된 수업이 있어요."),
     TIME_RANGE_INVALID(HttpStatus.BAD_REQUEST, "시작/종료 시각이 올바르지 않아요."),
     TIMETABLE_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 수업은 이 필드를 수정할 수 없어요."),
+    EVERYTIME_URL_INVALID(HttpStatus.BAD_REQUEST, "에브리타임 시간표 공유 링크 형식이 올바르지 않아요."),
+    EVERYTIME_IMPORT_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "에브리타임 시간표를 가져오지 못했어요. 공개 시간표인지 확인해 주세요."),
     DATE_RANGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 기간이 너무 길어요."),
     EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "일정이 없어요."),
     EVENT_READONLY_FIELD(HttpStatus.BAD_REQUEST, "외부에서 가져온 일정은 이 필드를 수정할 수 없어요."),

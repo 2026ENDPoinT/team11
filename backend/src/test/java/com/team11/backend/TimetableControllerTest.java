@@ -185,4 +185,27 @@ class TimetableControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.entries", hasSize(2))); // MANUAL 1개 + ECLASS 1개, 서로 다른 source라 유지됨
     }
+
+    @Test
+    void importFromEverytime_rejectsBlankAndMalformedUrlBeforeCallingExternalApi() throws Exception {
+        String token = signupAndLogin("tteveryt1");
+
+        mockMvc.perform(post("/api/v1/timetable/import/everytime").param("semester", "2026-2")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "url": "" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+
+        mockMvc.perform(post("/api/v1/timetable/import/everytime").param("semester", "2026-2")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "url": "https://everytime.kr/timetable" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("EVERYTIME_URL_INVALID"));
+    }
 }

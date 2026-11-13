@@ -3,6 +3,7 @@ package com.team11.backend.timetable.controller;
 import com.team11.backend.common.ApiResponse;
 import com.team11.backend.timetable.dto.BulkReplaceTimetableRequest;
 import com.team11.backend.timetable.dto.CreateTimetableEntryRequest;
+import com.team11.backend.timetable.dto.EverytimeImportRequest;
 import com.team11.backend.timetable.dto.SemesterListResponse;
 import com.team11.backend.timetable.dto.TimetableEntryView;
 import com.team11.backend.timetable.dto.TimetableResponse;
@@ -69,5 +70,13 @@ public class TimetableController {
                                                                         @RequestParam String semester,
                                                                         @Valid @RequestBody BulkReplaceTimetableRequest request) {
         return ResponseEntity.ok(ApiResponse.success(timetableService.bulkReplace(userId, semester, request)));
+    }
+
+    @PostMapping("/timetable/import/everytime")
+    public ResponseEntity<ApiResponse<TimetableResponse>> importFromEverytime(@AuthenticationPrincipal Long userId,
+                                                                                 @RequestParam String semester,
+                                                                                 @Valid @RequestBody EverytimeImportRequest request) {
+        return ResponseEntity.ok(
+                ApiResponse.success(timetableService.importFromEverytime(userId, semester, request.url())));
     }
 }
