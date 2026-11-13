@@ -15,6 +15,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,8 +25,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException e) {
         ErrorCode code = e.getErrorCode();
-        return ResponseEntity.status(code.getHttpStatus())
-                .body(ApiResponse.error(ApiError.of(code, e.getDetails())));
+        return ResponseEntity.status(code.getHttpStatus()).body(ApiResponse.error(ApiError.of(code, e.getDetails())));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -33,32 +33,31 @@ public class GlobalExceptionHandler {
         List<FieldViolation> violations = e.getBindingResult().getFieldErrors().stream()
                 .map(fe -> new FieldViolation(fe.getField(), fe.getDefaultMessage()))
                 .toList();
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
-                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, violations)));
+        return validationFailed(violations);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ApiResponse<Void>> handleParamValidation(HandlerMethodValidationException e) {
         List<FieldViolation> violations = e.getParameterValidationResults().stream()
-                .map(r -> new FieldViolation(
-                        r.getMethodParameter().getParameterName(),
+                .map(r -> new FieldViolation(r.getMethodParameter().getParameterName(),
                         r.getResolvableErrors().getFirst().getDefaultMessage()))
                 .toList();
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
-                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, violations)));
+        return validationFailed(violations);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException e) {
-        List<FieldViolation> violations = List.of(new FieldViolation(e.getParameterName(), "필수 값이에요."));
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
-                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, violations)));
+        return validationFailed(List.of(new FieldViolation(e.getParameterName(), "필수 값이에요.")));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return validationFailed(List.of(new FieldViolation(e.getName(), "형식이 올바르지 않아요.")));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException e) {
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
-                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED)));
+        return validationFailed(null);
     }
 
     @ExceptionHandler(Exception.class)
@@ -66,5 +65,10 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(ApiError.of(ErrorCode.INTERNAL_ERROR)));
+    }
+
+    private ResponseEntity<ApiResponse<Void>> validationFailed(Object details) {
+        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
+                .body(ApiResponse.error(ApiError.of(ErrorCode.VALIDATION_FAILED, details)));
     }
 }

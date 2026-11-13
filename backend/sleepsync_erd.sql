@@ -1,77 +1,61 @@
--- SleepSync DB 스키마 (source of truth)
---
--- 이 파일은 적용된 Flyway 마이그레이션(src/main/resources/db/migration)의 현재 상태를
--- 그대로 반영한 스냅샷이다. 마이그레이션을 추가/수정하면 이 파일도 같이 갱신한다.
--- ERD Cloud 다이어그램은 이 파일 기준으로 다시 그릴 예정이며, 그 전까지는 이 파일이
--- 1차 소스 오브 트루스다 (CLAUDE.md 1번 참고).
---
--- 구성: Part 1 = 테이블, Part 2 = 인덱스
--- 현재 반영된 도메인: Auth (users, characters, consents, refresh_tokens) — V1
---                   Users (notification_settings) — V2
---                   Timetable (timetable_entries) — V3
---                   Events (events) — V4
---                   Plans (plans) — V5
---                   Logs (sleep_logs, prep_logs) — V6
---                   Devices / Notifications (devices, notifications) — V7
---                   Logs 확장: 웨어러블(애플워치/갤럭시워치) 수면 단계 (sleep_stages) — V8
---                   Exam (exam_periods, exam_period_exams) — V9 (컬럼 타입 수정 V11)
---                   Plans 확장: 플랜 피드백(PLAN-06, plan_feedbacks) — V10
--- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
--- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
--- Tips도 테이블 없이 코드에 하드코딩된 고정 문구만 씀(홈 캐릭터 말풍선용, CLAUDE.md §10 참고).
--- 나머지 도메인(Stats 일부, Sync 나머지)은 전부 2차(CLAUDE.md §10).
+-- SleepSync DB 스냅샷. 적용된 Flyway 마이그레이션(src/main/resources/db/migration)을 그대로 반영한다.
+-- 마이그레이션을 추가/수정할 때 이 파일도 같이 갱신한다. 현재: V1__init.sql (2026-11-14 전면 재작성)
 
--- =====================================================================
--- Part 1. 테이블
--- =====================================================================
-
--- V1__init_auth.sql ---------------------------------------------------
-
-CREATE TABLE characters (
-    id          BIGSERIAL PRIMARY KEY,
-    code        VARCHAR(30)  NOT NULL,
-    name        VARCHAR(30)  NOT NULL,
-    description VARCHAR(200),
-    image_url   VARCHAR(500),
-    active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    sort_order  INT          NOT NULL DEFAULT 0,
-    CONSTRAINT uq_characters_code UNIQUE (code)
-);
+-- SleepSync 백엔드 v2 초기 스키마 (와이어프레임 v2 + AI 서버 1차 완성본 기준으로 전면 재작성).
+-- 이 파일은 재작성 기간에만 편집한다. 이후 스키마 변경은 V2__ 이상 새 파일로만.
 
 CREATE TABLE users (
-    id                  BIGSERIAL PRIMARY KEY,
-    login_id            VARCHAR(20)  NOT NULL,
-    password_hash       VARCHAR(100) NOT NULL,
-    nickname            VARCHAR(12)  NOT NULL,
-    onboarding_done     BOOLEAN      NOT NULL DEFAULT FALSE,
-    chronotype          VARCHAR(10)  NOT NULL DEFAULT 'NEUTRAL',
-    sleep_need_min      INT          NOT NULL DEFAULT 465,
-    sleep_latency_min   INT          NOT NULL DEFAULT 15,
-    commute_min         INT          NOT NULL DEFAULT 0,
-    prep_min            INT          NOT NULL DEFAULT 0,
-    buffer_min          INT          NOT NULL DEFAULT 10,
-    min_sleep_min       INT          NOT NULL DEFAULT 300,
-    character_id        BIGINT REFERENCES characters(id) ON DELETE SET NULL,
-    failed_login_count  INT          NOT NULL DEFAULT 0,
-    locked_until        TIMESTAMPTZ,
-    created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    id                    BIGSERIAL PRIMARY KEY,
+    login_id              VARCHAR(20)  NOT NULL,
+    password_hash         VARCHAR(100) NOT NULL,
+    name                  VARCHAR(30)  NOT NULL,
+    onboarding_done       BOOLEAN      NOT NULL DEFAULT FALSE,
+    -- 수면 설정 시트(일상 모드 입력) — 범위는 AI-02 profile 계약과 동일
+    sleep_need_min        INT          NOT NULL DEFAULT 465,
+    sleep_latency_min     INT          NOT NULL DEFAULT 15,
+    commute_min           INT          NOT NULL DEFAULT 0,
+    prep_min              INT          NOT NULL DEFAULT 0,
+    buffer_min            INT          NOT NULL DEFAULT 10,
+    min_sleep_min         INT          NOT NULL DEFAULT 300,
+    -- 시험 설정(온보딩): 시험 며칠 전부터 시험 모드를 권할지
+    exam_prep_days        INT          NOT NULL DEFAULT 3,
+    -- 집중 모드 하루 필요 수면 범위(침대 체류 분) — AI-06 minInBedMinutes/maxInBedMinutes
+    focus_min_in_bed_min  INT          NOT NULL DEFAULT 360,
+    focus_max_in_bed_min  INT          NOT NULL DEFAULT 480,
+    failed_login_count    INT          NOT NULL DEFAULT 0,
+    locked_until          TIMESTAMPTZ,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT uq_users_login_id UNIQUE (login_id),
     CONSTRAINT ck_users_sleep_need_min CHECK (sleep_need_min BETWEEN 300 AND 600),
     CONSTRAINT ck_users_sleep_latency_min CHECK (sleep_latency_min BETWEEN 0 AND 60),
     CONSTRAINT ck_users_commute_min CHECK (commute_min BETWEEN 0 AND 240),
     CONSTRAINT ck_users_prep_min CHECK (prep_min BETWEEN 0 AND 240),
     CONSTRAINT ck_users_buffer_min CHECK (buffer_min BETWEEN 0 AND 60),
-    CONSTRAINT ck_users_min_sleep_min CHECK (min_sleep_min BETWEEN 240 AND 480)
+    CONSTRAINT ck_users_min_sleep_min CHECK (min_sleep_min BETWEEN 240 AND 480),
+    CONSTRAINT ck_users_exam_prep_days CHECK (exam_prep_days BETWEEN 1 AND 14),
+    CONSTRAINT ck_users_focus_range CHECK (focus_min_in_bed_min BETWEEN 1 AND 960
+                                           AND focus_max_in_bed_min BETWEEN 1 AND 960
+                                           AND focus_min_in_bed_min <= focus_max_in_bed_min)
 );
 
+-- 온보딩 0-3 동의 화면: MEDICAL_DISCLAIMER / TERMS / PRIVACY(필수 3) + NOTIFICATION(선택)
 CREATE TABLE consents (
     id         BIGSERIAL PRIMARY KEY,
-    user_id    BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type       VARCHAR(20)  NOT NULL,
-    agreed     BOOLEAN      NOT NULL DEFAULT FALSE,
+    user_id    BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type       VARCHAR(30) NOT NULL,
+    agreed     BOOLEAN     NOT NULL DEFAULT FALSE,
     agreed_at  TIMESTAMPTZ,
     CONSTRAINT uq_consents_user_type UNIQUE (user_id, type)
+);
+
+-- 설정 5-2 알림 화면: 기상 알람 / 취침 알람 / 취침 알람 미리(15·30·60분)
+CREATE TABLE notification_settings (
+    user_id                BIGINT  PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    wake_alarm_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    bedtime_alarm_enabled  BOOLEAN NOT NULL DEFAULT TRUE,
+    bedtime_lead_min       INT     NOT NULL DEFAULT 30,
+    CONSTRAINT ck_notification_settings_lead CHECK (bedtime_lead_min IN (15, 30, 60))
 );
 
 CREATE TABLE refresh_tokens (
@@ -84,216 +68,74 @@ CREATE TABLE refresh_tokens (
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT uq_refresh_tokens_token_hash UNIQUE (token_hash)
 );
+CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
 
--- V2__notification_settings.sql ----------------------------------------
-
-CREATE TABLE notification_settings (
-    user_id                 BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    enabled                 BOOLEAN NOT NULL DEFAULT TRUE,
-    wind_down_min_before    INT     NOT NULL DEFAULT 60,
-    bed_reminder_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-    caffeine_cutoff_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    nap_reminder_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-    streak_risk_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
-    weekly_report_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
-    quiet_hours_start       TIME,
-    quiet_hours_end         TIME,
-    CONSTRAINT ck_notification_settings_wind_down_min_before CHECK (wind_down_min_before BETWEEN 0 AND 180)
-);
-
--- V3__timetable.sql -----------------------------------------------------
-
+-- 일정 3-1 시간표: 과목명·요일·시작·종료·강의실. source = MANUAL | EVERYTIME
 CREATE TABLE timetable_entries (
     id           BIGSERIAL PRIMARY KEY,
-    user_id      BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    semester     VARCHAR(6)  NOT NULL,
-    day_of_week  VARCHAR(3)  NOT NULL,
-    start_time   TIME        NOT NULL,
-    end_time     TIME        NOT NULL,
-    course_name  VARCHAR(50) NOT NULL,
-    location     VARCHAR(30),
-    source       VARCHAR(10) NOT NULL DEFAULT 'MANUAL',
-    external_id  VARCHAR(100),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id      BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    semester     VARCHAR(10)  NOT NULL,
+    day_of_week  VARCHAR(3)   NOT NULL,
+    start_time   TIME         NOT NULL,
+    end_time     TIME         NOT NULL,
+    course_name  VARCHAR(50)  NOT NULL,
+    room         VARCHAR(50),
+    source       VARCHAR(10)  NOT NULL DEFAULT 'MANUAL',
+    external_id  VARCHAR(50),
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT ck_timetable_entries_time_range CHECK (start_time < end_time)
 );
+CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
 
--- V4__events.sql --------------------------------------------------------
-
+-- 일정 3-3 일정: 과제/시험/약속/기타. 종일·다일(start~end가 여러 날) 지원. end_at NULL = 시작 시각만 있는 일정
 CREATE TABLE events (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type        VARCHAR(20)  NOT NULL,
-    title       VARCHAR(50)  NOT NULL,
+    title       VARCHAR(100) NOT NULL,
+    type        VARCHAR(10)  NOT NULL,
     start_at    TIMESTAMPTZ  NOT NULL,
     end_at      TIMESTAMPTZ,
     all_day     BOOLEAN      NOT NULL DEFAULT FALSE,
-    tag         VARCHAR(20),
-    note        VARCHAR(200),
-    source      VARCHAR(10)  NOT NULL DEFAULT 'MANUAL',
-    external_id VARCHAR(100),
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT ck_events_time_range CHECK (end_at IS NULL OR start_at < end_at)
+    CONSTRAINT ck_events_time_range CHECK (end_at IS NULL OR end_at > start_at)
 );
+CREATE INDEX ix_events_user_start ON events(user_id, start_at);
 
--- V5__plans.sql (slots는 PLAN-05 생길 때 추가) ---------------------------
-
-CREATE TABLE plans (
-    id                       BIGSERIAL PRIMARY KEY,
-    user_id                  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    target_date              DATE        NOT NULL,
-    mode                     VARCHAR(10) NOT NULL,
-    status                   VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
-    recommended_bed_at       TIMESTAMPTZ NOT NULL,
-    recommended_wake_at      TIMESTAMPTZ NOT NULL,
-    user_bed_at              TIMESTAMPTZ,
-    sleep_min                INT         NOT NULL,
-    breakdown_commute_min    INT,
-    breakdown_prep_min       INT,
-    breakdown_buffer_min     INT,
-    breakdown_sleep_need_min INT,
-    breakdown_sleep_latency_min INT,
-    first_event_kind         VARCHAR(10),
-    first_event_title        VARCHAR(100),
-    first_event_start_at     TIMESTAMPTZ,
-    reasons                  TEXT[]      NOT NULL DEFAULT '{}',
-    warnings                 TEXT[]      NOT NULL DEFAULT '{}',
-    generated_by             VARCHAR(10) NOT NULL,
-    model_version            VARCHAR(50),
-    generated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- V6__logs.sql ------------------------------------------------------------
-
+-- 리포트 4-2 수면 기록(수동 입력 전용): 취침/기상/컨디션 3단계/메모. date = KST 기상일, 하루 1건
 CREATE TABLE sleep_logs (
-    id           BIGSERIAL PRIMARY KEY,
-    user_id      BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    date         DATE,
-    bed_at       TIMESTAMPTZ NOT NULL,
-    wake_at      TIMESTAMPTZ,
-    duration_min INT,
-    quality      INT,
-    status       VARCHAR(10) NOT NULL,
-    source       VARCHAR(10) NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_sleep_logs_time_range CHECK (wake_at IS NULL OR wake_at > bed_at),
-    CONSTRAINT ck_sleep_logs_quality CHECK (quality IS NULL OR quality BETWEEN 1 AND 5)
-);
-
-CREATE TABLE prep_logs (
     id            BIGSERIAL PRIMARY KEY,
     user_id       BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date          DATE        NOT NULL,
+    bed_at        TIMESTAMPTZ NOT NULL,
     wake_at       TIMESTAMPTZ NOT NULL,
-    departure_at  TIMESTAMPTZ NOT NULL,
-    prep_min      INT         NOT NULL,
+    duration_min  INT         NOT NULL,
+    quality       INT,
+    memo          VARCHAR(200),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_prep_logs_user_date UNIQUE (user_id, date),
-    CONSTRAINT ck_prep_logs_time_range CHECK (departure_at > wake_at)
+    CONSTRAINT uq_sleep_logs_user_date UNIQUE (user_id, date),
+    CONSTRAINT ck_sleep_logs_time_range CHECK (wake_at > bed_at),
+    CONSTRAINT ck_sleep_logs_quality CHECK (quality IS NULL OR quality BETWEEN 1 AND 3)
 );
 
--- V7__devices_notifications.sql --------------------------------------------
-
-CREATE TABLE devices (
+-- 홈 1 추천 플랜: 기상일(date) × 모드(NORMAL/FOCUS/EXAM)당 1건. 시험 모드가 NO_FEASIBLE_PLAN이면 bed/wake가 비어 nullable
+CREATE TABLE plans (
     id             BIGSERIAL PRIMARY KEY,
     user_id        BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    platform       VARCHAR(10)  NOT NULL,
-    push_token     VARCHAR(255) NOT NULL,
-    app_version    VARCHAR(20),
-    timezone       VARCHAR(50)  NOT NULL DEFAULT 'Asia/Seoul',
-    active         BOOLEAN      NOT NULL DEFAULT TRUE,
-    last_active_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    date           DATE         NOT NULL,
+    mode           VARCHAR(10)  NOT NULL,
+    status         VARCHAR(20)  NOT NULL,
+    bed_at         TIMESTAMPTZ,
+    wake_at        TIMESTAMPTZ,
+    sleep_min      INT,
+    basis_text     VARCHAR(120),
+    generated_by   VARCHAR(10)  NOT NULL,
+    model_version  VARCHAR(50),
+    reasons        TEXT[]       NOT NULL DEFAULT '{}',
+    warnings       TEXT[]       NOT NULL DEFAULT '{}',
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_devices_push_token UNIQUE (push_token)
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_plans_user_date_mode UNIQUE (user_id, date, mode)
 );
-
-CREATE TABLE notifications (
-    id         BIGSERIAL PRIMARY KEY,
-    user_id    BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type       VARCHAR(20) NOT NULL,
-    title      VARCHAR(100) NOT NULL,
-    body       VARCHAR(500) NOT NULL,
-    data       TEXT,
-    read_at    TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- V8__sleep_stages.sql ------------------------------------------------------
--- SYNC-01: 애플워치(HealthKit)/갤럭시워치(Health Connect) 등에서 앱이 읽어 온 수면 데이터를
--- POST /api/v1/sleep-logs/sync로 배치 동기화할 때, sleep_logs(source=WEARABLE) 한 건당
--- 실제 수면 단계(각성/램/비램) 구간을 저장한다. Sync 도메인 자체는 CLAUDE.md §10에서 2차로
--- 미뤄졌지만 이 엔드포인트만 먼저 구현됨(2026-11-13, 사용자 요청).
-
-CREATE TABLE sleep_stages (
-    id           BIGSERIAL PRIMARY KEY,
-    sleep_log_id BIGINT      NOT NULL REFERENCES sleep_logs(id) ON DELETE CASCADE,
-    stage        VARCHAR(10) NOT NULL,
-    start_at     TIMESTAMPTZ NOT NULL,
-    end_at       TIMESTAMPTZ NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_sleep_stages_time_range CHECK (end_at > start_at)
-);
-
--- V9__exam_periods.sql --------------------------------------------------
--- EXAM-02~06. 시험기간은 사용자가 직접 등록(EXAM-01 자동 감지는 2026-11-13 사용자 요청으로
--- 안 만듦). 플랜 생성(EXAM-07)은 AI 서버 연동 전이라 아직 없어서 plans 테이블과는 연결 없음.
--- daily_study_hours_max/difficulty/study_hours_needed는 처음엔 SMALLINT였는데 엔티티(int/
--- Integer, Hibernate 기본 매핑은 INTEGER)와 안 맞아 운영 배포가 깨짐 — V11에서 INTEGER로 넓힘.
-
-CREATE TABLE exam_periods (
-    id                     BIGSERIAL PRIMARY KEY,
-    user_id                BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name                   VARCHAR(30) NOT NULL,
-    from_date              DATE        NOT NULL,
-    to_date                DATE        NOT NULL,
-    daily_study_hours_max  INTEGER,
-    min_sleep_min          INT         NOT NULL,
-    include_naps           BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_exam_periods_date_range CHECK (to_date >= from_date AND to_date - from_date <= 30),
-    CONSTRAINT ck_exam_periods_daily_study_hours_max CHECK (daily_study_hours_max BETWEEN 1 AND 16),
-    CONSTRAINT ck_exam_periods_min_sleep_min CHECK (min_sleep_min >= 240)
-);
-
-CREATE TABLE exam_period_exams (
-    id                  BIGSERIAL PRIMARY KEY,
-    exam_period_id      BIGINT NOT NULL REFERENCES exam_periods(id) ON DELETE CASCADE,
-    event_id            BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    difficulty          INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
-    study_hours_needed  INTEGER NOT NULL CHECK (study_hours_needed BETWEEN 0 AND 100),
-    CONSTRAINT uq_exam_period_exams UNIQUE (exam_period_id, event_id)
-);
-
--- V10__plan_feedback.sql -----------------------------------------------------
--- PLAN-06 플랜 피드백. 매일 앱을 처음 열 때 전날 플랜이 어땠는지 물어보는 용도(사용자 요청,
--- 2026-11-13). 플랜 하나당 한 건(덮어쓰기)이라 plan_id를 PK로 둔다.
-
-CREATE TABLE plan_feedbacks (
-    plan_id    BIGINT PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
-    rating     VARCHAR(10) NOT NULL,
-    followed   BOOLEAN,
-    reason     VARCHAR(10),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- =====================================================================
--- Part 2. 인덱스
--- =====================================================================
-
-CREATE INDEX ix_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, semester);
-CREATE INDEX ix_events_user_start ON events(user_id, start_at);
-CREATE INDEX ix_devices_user_active ON devices(user_id, active);
-CREATE INDEX ix_notifications_user_id_desc ON notifications(user_id, id DESC);
-CREATE INDEX ix_sleep_stages_sleep_log_id ON sleep_stages(sleep_log_id, start_at);
-CREATE INDEX ix_exam_periods_user ON exam_periods(user_id, from_date);
-CREATE UNIQUE INDEX uq_plans_active_per_date ON plans(user_id, target_date) WHERE status = 'ACTIVE';
-CREATE INDEX ix_sleep_logs_user_date ON sleep_logs(user_id, date);

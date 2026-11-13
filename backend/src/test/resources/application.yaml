@@ -18,7 +18,10 @@ jwt:
 ai:
   base-url: ""
   internal-key: ""
-  timeout-seconds: 1
+  timeout:
+    tonight-seconds: 1
+    exam-seconds: 1
+    focus-seconds: 1
 
 app:
   semesters:
