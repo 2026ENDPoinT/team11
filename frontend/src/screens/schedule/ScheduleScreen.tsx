@@ -3,14 +3,16 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Calendar from '../../components/Calendar';
 import Timetable from '../../components/Timetable';
+import DayEvents from './DayEvents';
 import { C, Screen, Segmented } from '../../components/ui';
 import { useStore } from '../../store';
 
-// 3 일정 · 시간표 (14:504) / 3-2 일정 · 캘린더 (14:715)
+// 3 일정 · 시간표 (14:504) / 3-2 일정 · 캘린더 (14:715) / 3-2-1 일정 확인 (YS_github: 탭 안에서 바로 보임)
 export default function ScheduleScreen() {
   const navigation = useNavigation();
   const { classes } = useStore();
   const [view, setView] = useState<'시간표' | '캘린더'>('시간표');
+  const [day, setDay] = useState<string>(); // 캘린더에서 고른 날짜
 
   return (
     <Screen scroll>
@@ -26,13 +28,11 @@ export default function ScheduleScreen() {
           </Pressable>
         </>
       ) : (
-        <Calendar
-          month={new Date()}
-         
-          onSelect={date =>
-            navigation.navigate('Main', { screen: 'Schedule', params: { screen: 'EventDay', params: { date } } })
-          }
-        />
+        <>
+          <Calendar month={new Date()} selected={day} onSelect={setDay} />
+          {/* 날짜를 고르면 달력 아래에 그날 일정 (3-2-1). 날짜가 바뀌면 수정 중이던 줄은 닫힘 */}
+          {day && <DayEvents key={day} date={day} />}
+        </>
       )}
     </Screen>
   );

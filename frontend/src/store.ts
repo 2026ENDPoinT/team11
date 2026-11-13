@@ -35,7 +35,9 @@ export const sleepMin = (r: SleepRecord) => (r.wake - r.bed + 1440) % 1440;
 const h = (hh: number, mm = 0) => hh * 60 + mm;
 
 let state = {
-  user: { name: '마스터', id: 'master22' },
+  // ponytail: 서버가 없어서 로그인·가입 때 쓴 비밀번호를 앱 메모리에 그대로 둠(5-1-1 비밀번호 변경 확인용).
+  // 서버 붙이면 비밀번호 확인·변경은 서버에서 하고 여기선 빼기
+  user: { name: '마스터', id: 'master22', pw: '' },
   classes: [
     { id: 'c1', name: '자료구조', room: '미래관 301', day: 0, start: h(9), end: h(10, 30) },
     { id: 'c2', name: '자료구조', room: '미래관 301', day: 2, start: h(9), end: h(10, 30) },
@@ -95,7 +97,7 @@ export const updateEvent = (id: string, patch: Partial<Ev>) =>
   set({ events: state.events.map(e => (e.id === id ? { ...e, ...patch } : e)) });
 export const deleteEvent = (id: string) =>
   set({ events: state.events.filter(e => e.id !== id) });
-export const setUser = (user: { name: string; id: string }) => set({ user });
+export const setUser = (user: typeof state.user) => set({ user });
 export const saveRecord =(r: SleepRecord) =>
   set({ records: [...state.records.filter(x => x.date !== r.date), r] });
 
@@ -109,12 +111,6 @@ export function summarize(list: SleepRecord[]) {
   return { avg, bed: Math.round(bedAvg) % 1440, regular };
 }
 
-// "09:05" → 545, 형식이 틀리면 null
-export const parseHM = (s: string) => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
-  if (!m || +m[1] > 23 || +m[2] > 59) return null;
-  return +m[1] * 60 + +m[2];
-};
 export const fmtHM = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 export const ymd = (d: Date) =>

@@ -1,11 +1,4 @@
-import { parseHM, sleepMin, summarize } from '../src/store';
-
-test('parseHM', () => {
-  expect(parseHM('09:05')).toBe(545);
-  expect(parseHM('9:05')).toBe(545);
-  expect(parseHM('24:00')).toBeNull();
-  expect(parseHM('9시')).toBeNull();
-});
+import { sleepMin, summarize } from '../src/store';
 
 test('자정 넘긴 수면 시간', () => {
   expect(sleepMin({ date: 'x', bed: 23 * 60 + 30, wake: 7 * 60 })).toBe(450);
