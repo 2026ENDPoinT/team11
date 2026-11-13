@@ -74,7 +74,8 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.openSleepLog.bedAt").exists())
                 .andExpect(jsonPath("$.data.character.characterId").exists())
                 .andExpect(jsonPath("$.data.sleepDebtMin").value(nullValue()))
-                .andExpect(jsonPath("$.data.tip").value(nullValue()))
+                .andExpect(jsonPath("$.data.tip.tipId").exists())
+                .andExpect(jsonPath("$.data.tip.text").exists())
                 .andExpect(jsonPath("$.data.unreadNotifications").value(0))
                 .andExpect(jsonPath("$.data.nextEvents").isArray());
     }
