@@ -1,40 +1,59 @@
 import { useState } from 'react';
-import { Image, StyleSheet } from 'react-native';
-import { useNavigation, type StaticScreenProps } from '@react-navigation/native';
-import { Button, Field, Screen, Spacer } from '../../components/ui';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { ApiError } from '../../api/client';
+import * as api from '../../api/endpoints';
+import { Button, Field, Screen, t } from '../../components/ui';
 
-// 0-6 에브리타임 시간표 가져오기 (150:967): 온보딩 마지막. 안내 이미지 → 링크 → 불러오기 → 나중에 → 홈
-// 5-3 에브리타임 시간표 가져오기 (173:1441): 설정·수업 편집에서 들어옴. '나중에' 없고 불러오기는 맨 아래 → 뒤로
-export default function TimetableImportScreen({ route }: StaticScreenProps<{ back?: boolean } | undefined>) {
-  const navigation = useNavigation();
-  const back = !!route.params?.back;
+// 0-6 에브리타임 시간표 가져오기(258:186) · 5-3 설정에서도 같은 화면(264:669).
+// 온보딩 끝에서는 '나중에'가 Main으로, 설정에서는 뒤로.
+export default function TimetableImportScreen({ route }: { route?: { params?: { fromSettings?: boolean } } }) {
+  const nav = useNavigation();
+  const fromSettings = !!route?.params?.fromSettings;
   const [url, setUrl] = useState('');
-  const done = () =>
-    back ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [done, setDone] = useState<number | null>(null);
+
+  const finish = () => (fromSettings ? nav.goBack() : nav.reset({ index: 0, routes: [{ name: 'Main' }] }));
+
+  const load = async () => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = await api.importEverytime(url.trim());
+      setDone(r.entries.filter(e => e.source === 'EVERYTIME').length);
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : '불러오기에 실패했어요.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <Screen title="시간표 가져오기" scroll>
-      {/* 피그마: 에브리타임 시간표 화면 캡처, 282x568 가운데 */}
-      <Image
-        source={require('../../assets/images/everytime_guide.png')}
-        style={styles.guide}
-        resizeMode="cover"
-        accessibilityLabel="에브리타임 앱의 시간표 화면 예시"
-      />
-      <Field
-        placeholder="에브리타임 시간표 링크"
-        value={url}
-        onChangeText={setUrl}
-        keyboardType="url"
-      />
-      {back && <Spacer />}
-      {/* ponytail: 에브리타임 파싱 미구현, 서버 붙이면 url 보내기 */}
-      <Button title="불러오기" disabled={!url} onPress={done} />
-      {!back && <Button title="나중에" ghost onPress={done} />}
+    <Screen title="시간표 가져오기" back={fromSettings} scroll>
+      <View style={st.guide}>
+        <Image source={require('../../assets/images/everytime_guide.png')} style={st.guideImg} resizeMode="contain" />
+      </View>
+      <Text style={t.hint}>에브리타임 앱 → 시간표 → 공유(↗) → 링크 복사. 시간표가 '공개'여야 해요.</Text>
+      <Field placeholder="에브리타임 시간표 링크" value={url} onChangeText={setUrl} keyboardType="url" autoCapitalize="none" />
+      {done !== null ? (
+        <>
+          <Text style={t.body}>수업 {done}개를 가져왔어요.</Text>
+          <Button title="완료" onPress={finish} />
+        </>
+      ) : (
+        <>
+          {!!msg && <Text style={t.error}>{msg}</Text>}
+          <Button title="불러오기" onPress={load} loading={busy} disabled={!/^https?:\/\/everytime\.kr\/@/.test(url.trim())} />
+          <Button title="나중에" kind="ghost" onPress={finish} />
+        </>
+      )}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  guide: { alignSelf: 'center', width: 282, height: 568 },
+const st = StyleSheet.create({
+  guide: { alignItems: 'center' },
+  guideImg: { width: 282, height: 568 },
 });

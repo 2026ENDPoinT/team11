@@ -1,74 +1,48 @@
-import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
+  type PressableProps,
   type StyleProp,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { C, S } from '../theme';
 
-// 피그마 와이어프레임에서 반복되는 색
-export const C = {
-  text: '#212121',
-  sub: '#737373',
-  line: '#D1D1D1',
-  dark: '#383838',
-  danger: '#BF3333',
-  fill: '#F2F2F2',
-};
+// Figma '컴포넌트 (앱 ui.tsx 기준)' 섹션(257:302) 1:1 대응.
 
-export const MOOD_IMG = {
-  happy: require('../assets/images/happy.png'),
-  neutral: require('../assets/images/neutral.png'),
-  sad: require('../assets/images/sad.png'),
-};
-
-export const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
-// "2026-11-09" → "11월 9일 (월)"
-export const fmtDate = (date: string) => {
-  const d = new Date(date + 'T00:00:00');
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY[d.getDay()]})`;
-};
-
-// 분 → "6h 52m"
-export const fmtHm = (m: number) =>
-  `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`;
-
-// 분 → "4시간 30분" / "50분"
-export const fmtMin = (m: number) => {
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  if (!h) return `${r}분`;
-  return r ? `${h}시간 ${r}분` : `${h}시간`;
-};
-
-// 화면 틀: 상태바 영역 + (선택) 헤더 + body(padding 16, gap 12)
+/** 화면 틀: SafeArea + body padding 16 / gap 12. title을 주면 header(257:402) 포함 */
 export function Screen({
   title,
-  right,
+  back = true,
   scroll,
-  tab,
   children,
+  right,
+  style,
 }: {
   title?: string;
-  right?: ReactNode;
+  back?: boolean;
   scroll?: boolean;
-  tab?: boolean; // 탭 화면이면 뒤로가기 없음
   children: ReactNode;
+  right?: ReactNode;
+  style?: StyleProp<ViewStyle>;
 }) {
   const Body = scroll ? ScrollView : View;
   return (
-    <SafeAreaView style={s.screen} edges={['top']}>
-      {title && <Header title={title} right={right} back={!tab} />}
+    <SafeAreaView style={st.safe} edges={['top']}>
+      {title !== undefined && <Header title={title} back={back} right={right} />}
       <Body
-        style={scroll ? s.flex : s.body}
-        contentContainerStyle={scroll ? s.bodyScroll : undefined}
+        style={[st.body, style]}
+        contentContainerStyle={scroll ? [st.body, style] : undefined}
+        keyboardShouldPersistTaps="handled"
       >
         {children}
       </Body>
@@ -76,394 +50,238 @@ export function Screen({
   );
 }
 
-export function Header({
-  title,
-  right,
-  back = true,
-}: {
-  title: string;
-  right?: ReactNode;
-  back?: boolean;
-}) {
-  const navigation = useNavigation();
+/** header(257:402): ← pill + 제목 19 bold */
+export function Header({ title, back = true, right }: { title: string; back?: boolean; right?: ReactNode }) {
+  const nav = useNavigation();
   return (
-    <View style={s.header}>
+    <View style={st.header}>
       {back && (
-        <Pressable
-          style={s.pill}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={s.pillText}>←</Text>
+        <Pressable onPress={() => nav.goBack()} style={st.backBtn} accessibilityRole="button" accessibilityLabel="뒤로">
+          <Text style={st.backText}>←</Text>
         </Pressable>
       )}
-      <Text style={s.headerTitle}>{title}</Text>
+      <Text style={st.headerTitle}>{title}</Text>
       {right}
     </View>
   );
 }
 
-export const Spacer = () => <View style={s.flex} />;
-
-export function Field({ label, ...props }: { label?: string } & TextInputProps) {
-  return (
-    <View style={s.field}>
-      {label && <Text style={s.label}>{label}</Text>}
-      <TextInput
-        style={s.input}
-        placeholderTextColor={C.sub}
-        autoCapitalize="none"
-        {...props}
-      />
-    </View>
-  );
-}
-
+/** button(257:412): 기본 #383838 / 비활성 #d1d1d1 / 고스트 투명 */
 export function Button({
   title,
-  onPress,
-  ghost,
+  kind = 'primary',
   disabled,
+  loading,
   style,
-}: {
-  title: string;
-  onPress?: () => void;
-  ghost?: boolean;
-  disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
-}) {
+  ...rest
+}: PressableProps & { title: string; kind?: 'primary' | 'ghost'; loading?: boolean; style?: StyleProp<ViewStyle> }) {
+  const off = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={[
-        s.btn,
-        !ghost && { backgroundColor: disabled ? C.line : C.dark },
-        style,
-      ]}
+      accessibilityState={{ disabled: !!off }}
+      disabled={off}
+      style={[st.btn, kind === 'primary' && (off ? st.btnOff : st.btnOn), style]}
+      {...rest}
     >
-      <Text style={ghost ? s.btnGhostText : s.btnText}>{title}</Text>
+      {loading ? (
+        <ActivityIndicator color={kind === 'primary' ? '#fff' : C.sub} />
+      ) : (
+        <Text style={[st.btnText, kind === 'ghost' && st.btnGhostText]}>{title}</Text>
+      )}
     </Pressable>
   );
 }
 
-// 작은 둥근 버튼 (회원가입 링크, ± 등)
+/** pill(257:419): 기본(텍스트만) / 테두리 / 선택(채움) */
 export function Pill({
   title,
-  onPress,
-  outline,
-  active,
-}: {
-  title: string;
-  onPress?: () => void;
-  outline?: boolean;
-  active?: boolean;
-}) {
+  kind = 'plain',
+  style,
+  ...rest
+}: PressableProps & { title: string; kind?: 'plain' | 'outline' | 'selected'; style?: StyleProp<ViewStyle> }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
-      style={[s.pill, outline && s.pillOutline, active && s.pillActive]}
+      style={[st.pill, kind === 'outline' && st.pillOutline, kind === 'selected' && st.pillSelected, style]}
+      {...rest}
     >
-      <Text style={[s.pillText, outline && { color: C.text }, active && { color: '#FFFFFF' }]}>
+      <Text style={[st.pillText, kind === 'outline' && st.pillOutlineText, kind === 'selected' && st.pillSelectedText]}>
         {title}
       </Text>
     </Pressable>
   );
 }
 
-export function Check({
-  label,
-  checked,
-  onPress,
-}: {
-  label: string;
-  checked: boolean;
-  onPress: () => void;
-}) {
+/** field(257:420): 라벨 12 sub + 밑줄 입력 */
+export function Field({ label, style, ...rest }: TextInputProps & { label?: string; style?: StyleProp<ViewStyle> }) {
   return (
-    <Pressable
-      style={s.row}
-      onPress={onPress}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-    >
-      <View style={[s.box, checked ? s.boxOn : s.boxOff]} />
-      <Text style={s.rowText}>{label}</Text>
-    </Pressable>
+    <View style={[st.field, style]}>
+      {!!label && <Text style={st.fieldLabel}>{label}</Text>}
+      <TextInput
+        placeholderTextColor={C.sub}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={st.input}
+        {...rest}
+      />
+    </View>
   );
 }
 
-// "통학 시간  − 50분 +" 행. 값 칸 너비를 고정해서 값이 길어져도 −, + 위치가 안 움직임
+/** stepper(257:424): 항목 ─ (−) 값 (+) */
 export function Stepper({
   label,
   value,
   onChange,
   step = 10,
   min = 0,
-  max = 24 * 60,
-  fmt = fmtMin,
+  max,
+  fmt = v => `${v}분`,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
   min?: number;
-  max?: number;
+  max: number;
   fmt?: (v: number) => string;
 }) {
   return (
-    <View style={[s.row, s.gap8]}>
-      <Text style={s.rowText}>{label}</Text>
-      <Pill outline title="−" onPress={() => onChange(Math.max(min, value - step))} />
-      <Text style={s.value} numberOfLines={1}>
-        {fmt(value)}
-      </Text>
-      <Pill outline title="+" onPress={() => onChange(Math.min(max, value + step))} />
+    <View style={st.stepper}>
+      <Text style={st.stepperLabel}>{label}</Text>
+      <Pill title="−" kind="outline" onPress={() => onChange(Math.max(min, value - step))} accessibilityLabel={`${label} 줄이기`} />
+      <Text style={st.stepperValue}>{fmt(value)}</Text>
+      <Pill title="+" kind="outline" onPress={() => onChange(Math.min(max, value + step))} accessibilityLabel={`${label} 늘리기`} />
     </View>
   );
 }
 
-// iOS식 휠 피커: 위아래로 굴려서 가운데 줄 값을 고름. onPick이 있으면 숫자를 눌러서 확정
-const WH = 36; // 한 줄 높이
-export function Wheel({
-  values,
-  value,
-  onChange,
-  onPick,
-  fmt = fmtMin,
-}: {
-  values: number[];
-  value: number;
-  onChange: (v: number) => void;
-  onPick?: (v: number) => void;
-  fmt?: (v: number) => string;
-}) {
-  const ref = useRef<ComponentRef<typeof ScrollView>>(null);
-  const i = Math.max(0, values.indexOf(value));
-  const pick = (y: number) => {
-    const v = values[Math.min(values.length - 1, Math.max(0, Math.round(y / WH)))];
-    if (v !== value) onChange(v);
-  };
-  const go = (to: number) => {
-    const v = values[Math.min(values.length - 1, Math.max(0, to))];
-    onChange(v);
-    ref.current?.scrollTo({ y: values.indexOf(v) * WH });
-  };
+/** check(257:437) */
+export function Check({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
   return (
-    <View
-      style={s.wheel}
-      accessibilityRole="adjustable"
-      accessibilityValue={{ text: fmt(value) }}
-      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-      onAccessibilityAction={e => go(i + (e.nativeEvent.actionName === 'increment' ? 1 : -1))}
-    >
-      <View style={s.wheelBand} pointerEvents="none" />
-      <ScrollView
-        ref={ref}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator={false}
-        snapToInterval={WH}
-        decelerationRate="fast"
-        contentContainerStyle={s.wheelPad}
-        onLayout={() => ref.current?.scrollTo({ y: i * WH, animated: false })}
-        onMomentumScrollEnd={e => pick(e.nativeEvent.contentOffset.y)}
-        onScrollEndDrag={e => pick(e.nativeEvent.contentOffset.y)}
-      >
-        {values.map(v => (
-          <Text
-            key={v}
-            style={[s.wheelItem, v === value && s.wheelOn]}
-            onPress={
-              onPick &&
-              (() => {
-                onChange(v);
-                onPick(v);
-              })
-            }
-          >
-            {fmt(v)}
-          </Text>
-        ))}
-      </ScrollView>
-    </View>
+    <Pressable style={st.check} onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked }}>
+      <View style={[st.checkBox, checked ? st.checkOn : st.checkOff]} />
+      <Text style={st.checkLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
-// 시간표/캘린더, 주간/월간 전환 버튼
+/** toggle(257:442): 네이티브 Switch에 Figma 색만 */
+export function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return <Switch value={value} onValueChange={onChange} trackColor={{ true: C.primary, false: C.line }} />;
+}
+
+/** segmented(257:453): 둘 중 하나 */
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
 }: {
-  options: readonly T[];
+  options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
 }) {
   return (
-    <View style={s.seg}>
-      {options.map(o => (
-        <Pressable
-          key={o}
-          style={[s.segBtn, value === o && s.pillActive]}
-          onPress={() => onChange(o)}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: value === o }}
-        >
-          <Text style={[s.segText, value === o && s.segTextOn]}>{o}</Text>
-        </Pressable>
-      ))}
+    <View style={st.seg}>
+      {options.map(o => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            style={[st.segItem, on && st.segOn]}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+          >
+            <Text style={[st.segText, on && st.segTextOn]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
-export function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+/** add button(257:454): 점선 */
+export function AddButton({ title = '+ 추가', onPress }: { title?: string; onPress: () => void }) {
   return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
-      onPress={() => onChange(!value)}
-      style={[s.toggle, { backgroundColor: value ? C.dark : C.line }]}
-    >
-      <View style={[s.knob, { alignSelf: value ? 'flex-end' : 'flex-start' }]} />
+    <Pressable style={st.add} onPress={onPress} accessibilityRole="button">
+      <Text style={st.addText}>{title}</Text>
     </Pressable>
   );
 }
 
-// 드래그/탭으로 값을 고르는 막대 슬라이더 (피그마 Slider Component: 높이 26, 손잡이 40)
-export function Slider({
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}) {
-  const [w, setW] = useState(0);
-  const pick = (x: number) => {
-    if (!w) return;
-    const ratio = Math.min(1, Math.max(0, (x - 20) / (w - 40)));
-    onChange(min + Math.round((ratio * (max - min)) / step) * step);
-  };
-  const left = w ? ((value - min) / (max - min)) * (w - 40) : 0;
-  return (
-    <View
-      style={s.slider}
-      onLayout={e => setW(e.nativeEvent.layout.width)}
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
-      onResponderGrant={e => pick(e.nativeEvent.locationX)}
-      onResponderMove={e => pick(e.nativeEvent.locationX)}
-      accessibilityRole="adjustable"
-      accessibilityValue={{ min, max, now: value }}
-    >
-      <View style={[s.sliderFill, { width: left + 40 }]} />
-      <View style={[s.sliderKnob, { left }]} pointerEvents="none" />
-    </View>
-  );
+/** 남은 공간 밀어내기 (버튼을 바닥으로) */
+export const Spacer = () => <View style={st.spacer} />;
+
+/** 로딩/에러 공통 */
+export function Status({ loading, error, onRetry }: { loading?: boolean; error?: { message: string } | null; onRetry?: () => void }) {
+  if (loading) return <ActivityIndicator style={st.status} color={C.sub} />;
+  if (error)
+    return (
+      <View style={st.status}>
+        <Text style={t.error}>{error.message}</Text>
+        {onRetry && <Pill title="다시 시도" kind="outline" onPress={onRetry} />}
+      </View>
+    );
+  return null;
 }
 
+// 공통 텍스트 스타일
 export const t = StyleSheet.create({
-  step: { fontSize: 12, fontWeight: '700', color: C.sub },
-  h1: { fontSize: 20, fontWeight: '700', color: C.text },
-  h2: { fontSize: 15, fontWeight: '700', color: C.text },
+  h1: { fontSize: 22, fontWeight: '700', color: C.text },
+  sub: { fontSize: 14, color: C.sub },
   body: { fontSize: 14, color: C.text },
-  sub: { fontSize: 12, color: C.sub },
-  hint: { fontSize: 9, color: '#9C9C9C' },
-  error: { fontSize: 13, fontWeight: '700', color: C.danger },
+  hint: { fontSize: 12, color: C.sub },
+  step: { fontSize: 12, color: C.sub },
+  error: { fontSize: 13, fontWeight: '700', color: C.error },
+  label: { fontSize: 12, color: C.sub },
 });
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  flex: { flex: 1 },
-  body: { flex: 1, padding: 16, gap: 12 },
-  bodyScroll: { flexGrow: 1, padding: 16, gap: 12 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
+const st = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
+  body: { flex: 1, padding: S.pad, gap: S.gap, backgroundColor: C.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: S.pad, paddingVertical: 10 },
+  backBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: S.pill },
+  backText: { fontSize: 12, color: C.sub },
   headerTitle: { flex: 1, fontSize: 19, fontWeight: '700', color: C.text },
-  field: { gap: 6 },
-  label: { fontSize: 12, color: C.sub },
-  input: {
-    borderBottomWidth: 1,
-    borderColor: C.line,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: C.text,
-  },
-  btn: {
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
+  btn: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 13, borderRadius: S.radius },
+  btnOn: { backgroundColor: C.primary },
+  btnOff: { backgroundColor: C.disabled },
   btnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  btnGhostText: { fontSize: 15, color: C.sub },
-  pill: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pillOutline: { borderWidth: 1, borderColor: C.line, backgroundColor: '#FFFFFF' },
-  pillActive: { backgroundColor: C.dark, borderColor: C.dark },
+  btnGhostText: { fontWeight: '400', color: C.sub },
+
+  pill: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: S.pill, borderWidth: 1, borderColor: 'transparent' },
+  pillOutline: { backgroundColor: '#FFFFFF', borderColor: C.line },
+  pillSelected: { backgroundColor: C.primary, borderColor: C.primary },
   pillText: { fontSize: 12, color: C.sub },
-  seg: { flexDirection: 'row', borderWidth: 1, borderColor: C.line, borderRadius: 16, overflow: 'hidden' },
-  segBtn: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  pillOutlineText: { color: C.text },
+  pillSelectedText: { color: '#FFFFFF' },
+
+  field: { gap: 6 },
+  fieldLabel: { fontSize: 12, color: C.sub },
+  input: { paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: C.text, borderBottomWidth: 1, borderBottomColor: C.line },
+
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepperLabel: { flex: 1, fontSize: 14, color: C.text },
+  stepperValue: { width: 76, textAlign: 'center', fontSize: 15, fontWeight: '700', color: C.text },
+
+  check: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  checkBox: { width: 20, height: 20, borderRadius: 5 },
+  checkOn: { backgroundColor: C.primary },
+  checkOff: { borderWidth: 1, borderColor: C.sub },
+  checkLabel: { flex: 1, fontSize: 14, color: C.text },
+
+  seg: { flexDirection: 'row', borderWidth: 1, borderColor: C.line, borderRadius: S.pill, overflow: 'hidden' },
+  segItem: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: S.pill },
+  segOn: { backgroundColor: C.primary },
   segText: { fontSize: 12, color: C.text },
   segTextOn: { color: '#FFFFFF', fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  gap8: { gap: 8, paddingVertical: 0 },
-  rowText: { flex: 1, fontSize: 14, color: C.text },
-  // 피그마 0-4 시험 기간: 값 칸 72px ("4시간 30분"이 꽉 차는 너비). 폰 글꼴이 조금 넓어도 안 잘리게 +4
-  value: { width: 76, textAlign: 'center', fontSize: 15, fontWeight: '700', color: C.text },
-  wheel: { width: 140, height: WH * 5 },
-  wheelPad: { paddingVertical: WH * 2 },
-  wheelBand: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: WH * 2,
-    height: WH,
-    borderRadius: 8,
-    backgroundColor: C.fill,
-  },
-  wheelItem: { height: WH, lineHeight: WH, textAlign: 'center', fontSize: 15, color: C.sub },
-  wheelOn: { fontWeight: '700', color: C.text },
-  box: { width: 20, height: 20, borderRadius: 5 },
-  boxOn: { backgroundColor: C.dark },
-  boxOff: { borderWidth: 1, borderColor: C.sub },
-  toggle: { width: 44, height: 24, borderRadius: 12, padding: 3 },
-  knob: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FFFFFF' },
-  slider: {
-    height: 26,
-    borderRadius: 4,
-    backgroundColor: 'rgba(46,40,54,0.1)',
-    overflow: 'hidden',
-  },
-  sliderFill: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: '#2E2836' },
-  sliderKnob: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 40,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#2E2836',
-    backgroundColor: '#FFFFFF',
-  },
+
+  add: { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, borderRadius: S.radius, borderWidth: 1, borderStyle: 'dashed', borderColor: C.sub },
+  addText: { fontSize: 15, color: C.sub },
+
+  spacer: { flex: 1 },
+  status: { alignItems: 'center', gap: 8, paddingVertical: 24 },
 });
