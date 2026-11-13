@@ -20,10 +20,10 @@ spring:
           time_zone: Asia/Seoul
   flyway:
     enabled: true
-
-# Jackson 기본 time-zone이 UTC라 OffsetDateTime 역직렬화 시 +09:00 입력도 Z로 정규화됨(adjust-dates-to-context-time-zone 기본 true) → +09:00로 고정
-jackson:
-  time-zone: Asia/Seoul
+  # Jackson 기본 time-zone이 UTC라 OffsetDateTime 역직렬화 시 +09:00 입력도 Z로 정규화됨(adjust-dates-to-context-time-zone 기본 true) → +09:00로 고정.
+  # spring: 밑에 중첩해야 spring.jackson.time-zone으로 바인딩됨 — 최상위 jackson:으로 두면 적용되지 않음(실측으로 발견).
+  jackson:
+    time-zone: Asia/Seoul
 
 jwt:
   secret: ${JWT_SECRET:}
