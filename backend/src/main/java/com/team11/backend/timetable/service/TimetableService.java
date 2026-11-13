@@ -15,6 +15,7 @@ import com.team11.backend.timetable.dto.SemesterListResponse.SemesterView;
 import com.team11.backend.timetable.dto.TimetableEntryView;
 import com.team11.backend.timetable.dto.TimetableResponse;
 import com.team11.backend.timetable.dto.UpdateTimetableEntryRequest;
+import com.team11.backend.timetable.external.EverytimeClient;
 import com.team11.backend.timetable.repository.TimetableEntryRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -34,10 +35,13 @@ public class TimetableService {
 
     private final TimetableEntryRepository timetableEntryRepository;
     private final SemesterProperties semesterProperties;
+    private final EverytimeClient everytimeClient;
 
-    public TimetableService(TimetableEntryRepository timetableEntryRepository, SemesterProperties semesterProperties) {
+    public TimetableService(TimetableEntryRepository timetableEntryRepository, SemesterProperties semesterProperties,
+                             EverytimeClient everytimeClient) {
         this.timetableEntryRepository = timetableEntryRepository;
         this.semesterProperties = semesterProperties;
+        this.everytimeClient = everytimeClient;
     }
 
     @Transactional(readOnly = true)
@@ -129,6 +133,45 @@ public class TimetableService {
         timetableEntryRepository.saveAll(created);
 
         return getTimetable(userId, semester);
+    }
+
+    /** 에브리타임 공유 링크에서 수업을 가져와 해당 학기의 EVERYTIME 출처 수업을 통째로 교체한다. */
+    public TimetableResponse importFromEverytime(Long userId, String semester, String everytimeUrl) {
+        validateSemesterFormat(semester);
+        List<EverytimeClient.Subject> subjects = everytimeClient.fetchSubjects(everytimeUrl);
+
+        List<BulkReplaceTimetableRequest.Entry> entries = subjects.stream()
+                .flatMap(subject -> subject.times().stream()
+                        .map(time -> new BulkReplaceTimetableRequest.Entry(
+                                subject.id(),
+                                toDayOfWeek(time.day()),
+                                toLocalTime(time.startUnit()),
+                                toLocalTime(time.endUnit()),
+                                truncate(subject.name(), 50),
+                                truncate(time.place(), 30))))
+                .toList();
+
+        return bulkReplace(userId, semester, new BulkReplaceTimetableRequest(Source.EVERYTIME, entries));
+    }
+
+    private DayOfWeek toDayOfWeek(int day) {
+        if (day < 0 || day >= DayOfWeek.values().length) {
+            throw new ApiException(ErrorCode.EVERYTIME_IMPORT_FAILED);
+        }
+        return DayOfWeek.values()[day];
+    }
+
+    private LocalTime toLocalTime(int fiveMinuteUnit) {
+        int minutes = EverytimeClient.toMinutesOfDay(fiveMinuteUnit);
+        return LocalTime.of(minutes / 60, minutes % 60);
+    }
+
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.length() > max ? trimmed.substring(0, max) : trimmed;
     }
 
     private TimetableEntry findOwnedEntry(Long userId, Long entryId) {
