@@ -1,0 +1,60 @@
+{
+  "contractVersion": "SLEEPSYNC_EXAM_SNAPSHOT_V1",
+  "asOfAt": "2026-11-13T17:00:00+09:00",
+  "sourceRevision": 43,
+  "populationScope": "ADULT_VERIFIED",
+  "targetEventId": 101,
+  "selection": {
+    "preparationState": "SEEN_NOT_RECALLABLE",
+    "examNature": "RECALL",
+    "assessedAt": "2026-11-13T16:59:00+09:00"
+  },
+  "userProfile": {
+    "onboardingDone": true,
+    "prepMinEstimate": 50,
+    "settings": {
+      "sleepNeedMin": 465,
+      "sleepLatencyMin": 15,
+      "minSleepMin": 300,
+      "commuteMin": 40,
+      "prepMin": 55,
+      "bufferMin": 10,
+      "chronotype": "NEUTRAL"
+    }
+  },
+  "events": [
+    {
+      "eventId": 101,
+      "type": "EXAM",
+      "startAt": "2026-11-14T09:00:00+09:00",
+      "endAt": "2026-11-14T10:00:00+09:00",
+      "allDay": false
+    }
+  ],
+  "timetableEntries": [
+    {
+      "entryId": 202,
+      "dayOfWeek": "FRI",
+      "startTime": "18:00:00",
+      "endTime": "19:00:00",
+      "semester": "2026-2",
+      "courseName": "실습"
+    }
+  ],
+  "semesters": [
+    {"semester": "2026-2", "startDate": "2026-09-01", "endDate": "2026-12-20", "current": true}
+  ],
+  "sleepLogs": [
+    {
+      "sleepLogId": 3001,
+      "status": "CLOSED",
+      "source": "WEARABLE",
+      "bedAt": "2026-11-13T00:00:00+09:00",
+      "wakeAt": "2026-11-13T07:00:00+09:00",
+      "durationMin": 390,
+      "stages": [
+        {"stage": "LIGHT", "startAt": "2026-11-13T00:15:00+09:00", "endAt": "2026-11-13T01:00:00+09:00"}
+      ]
+    }
+  ]
+}

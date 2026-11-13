@@ -1,0 +1,162 @@
+{
+  "artifactVersion": "minimal-sleep-source-v1",
+  "fitStatus": "OFFLINE_SOURCE_REFITTED",
+  "targetValidation": "NOT_EVALUATED",
+  "causalPolicyValidation": "NOT_EVALUATED",
+  "evidenceStatus": "REAL_SOURCE_ESTIMATES_WITH_EXPLICIT_TRANSFER_ASSUMPTIONS",
+  "sourceHashes": {
+    "Combined_Sleep_Loss_Data.csv": "b4c7ac34ad133e6b8ebc26069daf2797fba367315a5d7bea88965b1592aad5aa",
+    "Restriction_Data.csv": "846927878bf12108447090eae5d0cd2dac55ef62a9bdd9357bda969cb8a5eeb3",
+    "Siefert2024_learning_data.csv": "ef3584769e24052b801f25c9b8eb981c5d44238e016bf377b820b7e1d117208d"
+  },
+  "sleepMeta": {
+    "source": "CROWLEY2024_COMBINED_SLEEP_LOSS_DATA",
+    "sourceRows": 310,
+    "includedEffects": 56,
+    "includedStudies": 39,
+    "excluded": {
+      "OTHER_MEMORY_OR_TASK": 170,
+      "STAGE_SPECIFIC_AWAKENING": 21,
+      "RECOVERY_SLEEP": 58,
+      "COMBINED_TIMING": 5
+    },
+    "cells": {
+      "After_Deprivation": {
+        "mean": 0.48664522112444225,
+        "ci95": [
+          0.35450158494321427,
+          0.5754841142637561
+        ],
+        "tau2": 0.0,
+        "studyCount": 8,
+        "effectCount": 14,
+        "scope": "STUDY_LEVEL_RECALL_SMD_NOT_INDIVIDUAL_PROBABILITY"
+      },
+      "After_Restriction": {
+        "mean": 0.28404915140552606,
+        "ci95": [
+          -0.12310435094430465,
+          0.8315279215431264
+        ],
+        "tau2": 0.19264489230487042,
+        "studyCount": 5,
+        "effectCount": 9,
+        "scope": "STUDY_LEVEL_RECALL_SMD_NOT_INDIVIDUAL_PROBABILITY"
+      },
+      "Before_Deprivation": {
+        "mean": 0.5862174291346436,
+        "ci95": [
+          0.4162726460379537,
+          0.7690599502014868
+        ],
+        "tau2": 0.043209036057972126,
+        "studyCount": 17,
+        "effectCount": 20,
+        "scope": "STUDY_LEVEL_RECALL_SMD_NOT_INDIVIDUAL_PROBABILITY"
+      },
+      "Before_Restriction": {
+        "mean": 0.3611526861360714,
+        "ci95": [
+          0.04153214078528475,
+          1.1184828553404003
+        ],
+        "tau2": 0.26004031496898977,
+        "studyCount": 9,
+        "effectCount": 13,
+        "scope": "STUDY_LEVEL_RECALL_SMD_NOT_INDIVIDUAL_PROBABILITY"
+      }
+    },
+    "method": "STUDY_CELL_COLLAPSE_RHO1_THEN_UNIVARIATE_RANDOM_EFFECTS_REML",
+    "bootstrapStudyReplicates": 2000,
+    "crossValidation": {
+      "studies": 39,
+      "studyCellCount": 39,
+      "mae": 0.38120150347510606,
+      "nullMae": 0.6052065910133193,
+      "mse": 0.3988628362083704,
+      "nullMse": 0.6505250899350512,
+      "scope": "LEAVE_STUDY_OUT_WITHIN_CELL_NOT_TARGET_ACCURACY"
+    },
+    "cautions": [
+      "NOT_ORIGINAL_THREE_LEVEL_META_ANALYSIS",
+      "HETEROGENEOUS_STUDIES",
+      "NO_IDENTIFIED_HOURLY_DOSE_CURVE",
+      "NO_PVT_TO_MEMORY_DATA",
+      "SOURCE_CI_NOT_TARGET_PI"
+    ]
+  },
+  "learning": {
+    "source": "SIEFERT2024_LEARNING_TRIALS",
+    "weights": [
+      -0.8524408302221576,
+      0.8941462430157948,
+      -0.08421115324134211
+    ],
+    "features": [
+      "intercept",
+      "log1p(PRIOR_SAME_ITEM_FEATURE_EXPOSURES)",
+      "isUnique"
+    ],
+    "firstTestProbability": 0.29545229520804794,
+    "reviewLogExposureSlope": 0.8941462430157948,
+    "acceptedByDevelopmentGate": true,
+    "splitProtocol": "SHA256_SUBJECT_MOD5_TEST0_DEV1_TRAIN2_4",
+    "splitRows": [
+      3149,
+      900,
+      630
+    ],
+    "splitSubjects": [
+      23,
+      6,
+      5
+    ],
+    "development": {
+      "logLoss": 0.6325486904742221,
+      "brier": 0.22059855594618633
+    },
+    "developmentBaseline": {
+      "logLoss": 0.692656481571301,
+      "brier": 0.24975467408223057
+    },
+    "test": {
+      "logLoss": 0.6224229100512687,
+      "brier": 0.21603610258465988
+    },
+    "testBaseline": {
+      "logLoss": 0.6905268589560831,
+      "brier": 0.24868998738400944
+    },
+    "testLogLossDifferenceClusterCI95": [
+      -0.08152106252330182,
+      -0.049001689846630225
+    ],
+    "firstTestProbabilityCI95": [
+      0.2582958527759611,
+      0.3319148200871781
+    ],
+    "reviewSlopeCI95": [
+      0.7077274707567784,
+      1.1399270481844772
+    ],
+    "participantBootstrapReplicates": 500,
+    "testClusterBootstrapReplicates": 2000,
+    "limitations": [
+      "ONLY_34_SUBJECTS",
+      "ADAPTIVE_STOPPING",
+      "CORRECTIVE_FEEDBACK_NOT_FULLY_LOGGED",
+      "FIRST_TEST_NOT_FIRST_EXPOSURE",
+      "ITEM_TO_HOUR_TRANSFER_UNVALIDATED",
+      "SATELLITE_FEATURE_TASK_NOT_COURSE_EXAM"
+    ]
+  },
+  "license": {
+    "meta": "OSF_NODE_LICENSE_UNSPECIFIED_RESEARCH_USE_REVIEW_REQUIRED",
+    "learning": "PUBLIC_REPOSITORY_NO_EXPLICIT_DATA_LICENSE_RESEARCH_USE_REVIEW_REQUIRED"
+  },
+  "offlineVersions": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "elapsedSeconds": 4.564736600004835
+}

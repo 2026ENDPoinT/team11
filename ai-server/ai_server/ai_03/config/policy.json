@@ -1,0 +1,32 @@
+{
+  "version": "workload-balanced-2",
+  "status": "ENGINEERING_POLICY_NOT_INDIVIDUAL_HEALTH_OR_SCORE_OPTIMUM",
+  "scenarioCount": 256,
+  "stagedEvaluation": true,
+  "layoutLimit": 48,
+  "shortLayoutLimit": 40,
+  "longLayoutLimit": 20,
+  "longHorizonHours": 36,
+  "beamWidth": 12,
+  "integrationStepMin": 15,
+  "wakeLeadMin": 30,
+  "maxContinuousWakeHours": 20,
+  "continuousWakeIsHardConstraint": false,
+  "nearTieTolerance": 0.01,
+  "habitualTimingRegretTolerance": 0.05,
+  "regretUtilityFloor": 0.05,
+  "cycleMaxShiftMin": 15,
+  "cycleMinNights": 7,
+  "cycleMinStageCoverage": 0.7,
+  "primaryDurationsMin": [60,90,120,150,180,210,240,270,300,330,360,390,420,450,480,510,540,570],
+  "napDurationsMin": [20,30,45,60,90],
+  "experimentalSplit": false,
+  "workloadHours": {
+    "STARTING": [4,8,16],
+    "STARTING_HEAVY": [12,24,48],
+    "SEEN_NOT_RECALLABLE": [2,4,8],
+    "PATCHING_GAPS": [0.5,1.5,3],
+    "FINAL_REVIEW": [0.25,0.5,1]
+  },
+  "workloadStatus": "ENGINEERING_RANGES_NOT_EMPIRICALLY_CALIBRATED"
+}

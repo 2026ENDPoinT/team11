@@ -1,0 +1,11 @@
+**
+!ai_server/
+!ai_server/**
+!deploy/
+!deploy/Dockerfile
+**/__pycache__/
+**/*.pyc
+**/*.key
+**/*.pem
+**/.env
+data/ai06/raw/

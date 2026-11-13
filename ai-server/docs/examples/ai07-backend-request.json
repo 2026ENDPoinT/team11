@@ -1,0 +1,68 @@
+{
+  "contractVersion": "EXAM_SLEEP_BACKEND_V1",
+  "asOfAt": "2026-11-13T17:00:00+09:00",
+  "sourceRevision": 43,
+  "populationScope": "ADULT_VERIFIED",
+  "selection": {
+    "preparationState": "SEEN_NOT_RECALLABLE",
+    "examNature": "RECALL",
+    "assessedAt": "2026-11-13T16:59:00+09:00",
+    "wordingVersion": "readiness-copy-1"
+  },
+  "profile": {
+    "sleepNeedMin": 465,
+    "sleepLatencyMin": 15,
+    "minSleepMin": 0,
+    "commuteMin": 40,
+    "prepMin": 55,
+    "prepMinEstimate": 50,
+    "bufferMin": 10,
+    "usualBedtime": "00:30",
+    "usualWakeTime": "07:30"
+  },
+  "events": [
+    {
+      "eventId": 101,
+      "type": "EXAM",
+      "startAt": "2026-11-14T09:00:00+09:00",
+      "endAt": "2026-11-14T10:00:00+09:00",
+      "allDay": false
+    },
+    {
+      "eventId": 102,
+      "type": "PERSONAL",
+      "startAt": "2026-11-13T18:00:00+09:00",
+      "endAt": "2026-11-13T19:00:00+09:00"
+    }
+  ],
+  "sleepLogs": [
+    {
+      "sleepLogId": 3001,
+      "bedAt": "2026-11-13T00:00:00+09:00",
+      "wakeAt": "2026-11-13T07:00:00+09:00",
+      "durationMin": 390,
+      "durationBasis": "ASLEEP_ESTIMATE",
+      "source": "WEARABLE",
+      "provider": "HEALTH_KIT",
+      "originApp": "com.apple.health",
+      "externalId": "native-1",
+      "deviceFamily": "APPLE_WATCH",
+      "sessionKind": "MAIN",
+      "stages": [
+        {
+          "stage": "LIGHT",
+          "startAt": "2026-11-13T00:15:00+09:00",
+          "endAt": "2026-11-13T01:00:00+09:00"
+        }
+      ]
+    }
+  ],
+  "historyCoverage": {
+    "startAt": "2026-10-30T00:00:00+09:00",
+    "endAt": "2026-11-13T17:00:00+09:00",
+    "state": "PARTIAL",
+    "lastSyncedAt": "2026-11-13T16:30:00+09:00"
+  },
+  "calendarState": "SYNCED",
+  "includeNaps": false
+}

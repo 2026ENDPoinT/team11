@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "0.1",
+  "now": "2026-11-09T18:00:00+09:00",
+  "asOfDate": "2026-11-09",
+  "preferences": {
+    "adultConfirmed": true,
+    "targetMinutes": 480,
+    "preparationCommuteMinutes": 90,
+    "sleepLatencyMinutes": 20,
+    "preferredBedtime": "23:00",
+    "preferredWakeTime": "07:00"
+  },
+  "sleepRecords": [
+    {
+      "date": "2026-11-05",
+      "targetMinutes": 480,
+      "actualSleepMinutes": 360
+    },
+    {
+      "date": "2026-11-06",
+      "targetMinutes": 480,
+      "actualSleepMinutes": 420
+    },
+    {
+      "date": "2026-11-07",
+      "targetMinutes": 480,
+      "sleepStart": "2026-11-06T23:00:00+09:00",
+      "sleepEnd": "2026-11-07T07:30:00+09:00",
+      "awakeMinutes": 0
+    },
+    {
+      "date": "2026-11-08",
+      "targetMinutes": 480,
+      "actualSleepMinutes": 390,
+      "napMinutes": 20
+    },
+    {
+      "date": "2026-11-09",
+      "targetMinutes": 480,
+      "actualSleepMinutes": 450
+    }
+  ],
+  "events": [
+    {
+      "title": "중간고사 대비 스터디",
+      "leadMinutes": 0,
+      "userOverride": {
+        "movability": "flexible"
+      },
+      "eventId": "study-1",
+      "startAt": "2026-11-09T23:00:00+09:00",
+      "endAt": "2026-11-10T01:00:00+09:00"
+    },
+    {
+      "title": "자료구조 중간고사",
+      "labels": {
+        "movability": "fixed"
+      },
+      "eventId": "exam-1",
+      "startAt": "2026-11-10T09:00:00+09:00",
+      "endAt": "2026-11-10T11:00:00+09:00"
+    },
+    {
+      "title": "오후 수업",
+      "labels": {
+        "movability": "fixed"
+      },
+      "eventId": "class-1",
+      "startAt": "2026-11-11T13:00:00+09:00",
+      "endAt": "2026-11-11T15:00:00+09:00"
+    },
+    {
+      "title": "인턴 면접",
+      "labels": {
+        "movability": "fixed"
+      },
+      "eventId": "interview-1",
+      "startAt": "2026-11-12T09:00:00+09:00",
+      "endAt": "2026-11-12T10:00:00+09:00"
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "result": {
+    "analyses": [
+      {
+        "eventId": 101,
+        "label": "과제·제출",
+        "sleepPriority": "높음",
+        "reason": "과제 작성·제출 활동으로 기본적인 집중력이 필요합니다. 사용자가 입력한 중요도·집중력 요구 중 높은 값을 반영했습니다.",
+        "matchedRule": "academic_assignment",
+        "matchedText": null,
+        "source": "rule",
+        "needsUserInput": false,
+        "matches": [],
+        "excluded": [],
+        "ruleVersion": "1.2.0",
+        "course": "자료구조",
+        "courseCandidates": [
+          "자료구조"
+        ],
+        "courseMatches": [
+          {
+            "course": "자료구조",
+            "expression": "자구",
+            "isAlias": true
+          }
+        ],
+        "needsCourseSelection": false,
+        "activity": "assignment",
+        "assessment": {
+          "basePriority": "보통",
+          "importance": "높음",
+          "focus": "보통",
+          "finalPriority": "높음",
+          "prioritySource": "explicit_signal",
+          "urgency": "24시간 이내",
+          "startStatus": "24시간 이내 시작",
+          "factors": [
+            "기본 분류 중요도: 보통",
+            "사용자 중요도: 높음",
+            "집중력 요구: 보통",
+            "마감: 24시간 이내 (숙면 중요도에는 가산하지 않음)",
+            "시작: 24시간 이내 시작 (숙면 중요도에는 가산하지 않음)"
+          ],
+          "startsAt": "2026-11-11T09:00:00+09:00",
+          "deadlineAt": "2026-11-11T12:00:00+09:00",
+          "referenceAt": "2026-11-10T18:00:00+09:00",
+          "missingInputs": []
+        }
+      },
+      {
+        "eventId": 102,
+        "label": "시험",
+        "sleepPriority": "높음",
+        "reason": "평가를 받는 시험 일정으로 집중력과 컨디션이 중요합니다.",
+        "matchedRule": "exam",
+        "matchedText": "중간고사",
+        "source": "rule",
+        "needsUserInput": false,
+        "matches": [
+          {
+            "label": "시험",
+            "sleepPriority": "높음",
+            "reason": "평가를 받는 시험 일정으로 집중력과 컨디션이 중요합니다.",
+            "matchedRule": "exam",
+            "matchedText": "중간고사"
+          }
+        ],
+        "excluded": [],
+        "ruleVersion": "1.2.0",
+        "course": "운영체제",
+        "courseCandidates": [
+          "운영체제"
+        ],
+        "courseMatches": [
+          {
+            "course": "운영체제",
+            "expression": "운체",
+            "isAlias": true
+          }
+        ],
+        "needsCourseSelection": false,
+        "activity": "exam",
+        "assessment": {
+          "basePriority": "높음",
+          "importance": null,
+          "focus": null,
+          "finalPriority": "높음",
+          "prioritySource": "base_rule",
+          "urgency": "미입력",
+          "startStatus": "24시간 이후 시작",
+          "factors": [
+            "기본 분류 중요도: 높음",
+            "사용자 중요도: 미입력",
+            "집중력 요구: 미입력",
+            "시작: 24시간 이후 시작 (숙면 중요도에는 가산하지 않음)"
+          ],
+          "startsAt": "2026-11-12T10:00:00+09:00",
+          "deadlineAt": null,
+          "referenceAt": "2026-11-10T18:00:00+09:00",
+          "missingInputs": [
+            "importance",
+            "focus",
+            "deadline_at"
+          ]
+        }
+      },
+      {
+        "eventId": 103,
+        "label": "기타",
+        "sleepPriority": null,
+        "reason": "정해진 분류 규칙과 일치하지 않습니다. 일정 라벨과 숙면 중요도를 직접 설정해 주세요.",
+        "matchedRule": null,
+        "matchedText": null,
+        "source": "unclassified",
+        "needsUserInput": true,
+        "matches": [],
+        "excluded": [],
+        "ruleVersion": "1.2.0",
+        "course": null,
+        "courseCandidates": [],
+        "courseMatches": [],
+        "needsCourseSelection": false,
+        "activity": null,
+        "assessment": {
+          "basePriority": null,
+          "importance": null,
+          "focus": null,
+          "finalPriority": null,
+          "prioritySource": "base_rule",
+          "urgency": "미입력",
+          "startStatus": "미입력",
+          "factors": [
+            "기본 분류 중요도: 미설정",
+            "사용자 중요도: 미입력",
+            "집중력 요구: 미입력"
+          ],
+          "startsAt": null,
+          "deadlineAt": null,
+          "referenceAt": "2026-11-10T18:00:00+09:00",
+          "missingInputs": [
+            "importance",
+            "focus",
+            "starts_at",
+            "deadline_at"
+          ]
+        }
+      }
+    ],
+    "warnings": [
+      "RULE_BASED_SLEEP_PRIORITY_NOT_RISK_PROBABILITY",
+      "KNOWN_ABBREVIATION_FALSE_POSITIVES"
+    ]
+  },
+  "modelVersion": "schedule-labeler-1.2.0"
+}

@@ -1,0 +1,1593 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI-03 Workload Exam Sleep",
+    "version": "2.0.0"
+  },
+  "security": [
+    {
+      "InternalKey": []
+    }
+  ],
+  "paths": {
+    "/ai/v1/plan/exam-sleep": {
+      "post": {
+        "operationId": "calculateExamSleep",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/MinimalRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BackendRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SpringSnapshot"
+                  }
+                ]
+              },
+              "example": {
+                "contractVersion": "SLEEPSYNC_EXAM_SNAPSHOT_V1",
+                "asOfAt": "2026-11-13T17:00:00+09:00",
+                "sourceRevision": 43,
+                "populationScope": "ADULT_VERIFIED",
+                "targetEventId": 101,
+                "selection": {
+                  "preparationState": "SEEN_NOT_RECALLABLE",
+                  "examNature": "RECALL",
+                  "assessedAt": "2026-11-13T16:59:00+09:00"
+                },
+                "userProfile": {
+                  "onboardingDone": true,
+                  "prepMinEstimate": 50,
+                  "settings": {
+                    "sleepNeedMin": 465,
+                    "sleepLatencyMin": 15,
+                    "minSleepMin": 300,
+                    "commuteMin": 40,
+                    "prepMin": 55,
+                    "bufferMin": 10,
+                    "chronotype": "NEUTRAL"
+                  }
+                },
+                "events": [
+                  {
+                    "eventId": 101,
+                    "type": "EXAM",
+                    "startAt": "2026-11-14T09:00:00+09:00",
+                    "endAt": "2026-11-14T10:00:00+09:00",
+                    "allDay": false
+                  }
+                ],
+                "timetableEntries": [
+                  {
+                    "entryId": 202,
+                    "dayOfWeek": "FRI",
+                    "startTime": "18:00:00",
+                    "endTime": "19:00:00",
+                    "semester": "2026-2",
+                    "courseName": "실습"
+                  }
+                ],
+                "semesters": [
+                  {
+                    "semester": "2026-2",
+                    "startDate": "2026-09-01",
+                    "endDate": "2026-12-20",
+                    "current": true
+                  }
+                ],
+                "sleepLogs": [
+                  {
+                    "sleepLogId": 3001,
+                    "status": "CLOSED",
+                    "source": "WEARABLE",
+                    "bedAt": "2026-11-13T00:00:00+09:00",
+                    "wakeAt": "2026-11-13T07:00:00+09:00",
+                    "durationMin": 390,
+                    "stages": [
+                      {
+                        "stage": "LIGHT",
+                        "startAt": "2026-11-13T00:15:00+09:00",
+                        "endAt": "2026-11-13T01:00:00+09:00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calculated result, including controlled limited-window statuses"
+          },
+          "400": {
+            "description": "Strict input validation error"
+          },
+          "401": {
+            "description": "Internal key required"
+          },
+          "422": {
+            "description": "Unsupported horizon or missing timed exam"
+          },
+          "503": {
+            "description": "Resource unavailable or busy"
+          },
+          "504": {
+            "description": "Worker deadline exceeded"
+          },
+          "410": {
+            "description": "Legacy AI-03 request contract retired"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "InternalKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Internal-Key"
+      }
+    },
+    "schemas": {
+      "MinimalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "type": "string",
+            "enum": [
+              "EXAM_SLEEP_MINIMAL_V1"
+            ]
+          },
+          "asOfAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "Asia/Seoul"
+            ]
+          },
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "populationScope": {
+            "type": "string",
+            "enum": [
+              "ADULT_VERIFIED",
+              "ADULT_UNVERIFIED"
+            ]
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "startsAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "examNature": {
+                "type": "string",
+                "enum": [
+                  "RECALL",
+                  "MIXED",
+                  "PROBLEM_SOLVING"
+                ]
+              },
+              "durationMin": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 480,
+                "default": 60
+              }
+            },
+            "required": [
+              "key",
+              "startsAt",
+              "examNature"
+            ]
+          },
+          "preparation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "STARTING",
+                  "STARTING_HEAVY",
+                  "SEEN_NOT_RECALLABLE",
+                  "PATCHING_GAPS",
+                  "FINAL_REVIEW"
+                ]
+              },
+              "assessedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "wordingVersion": {
+                "type": "string",
+                "enum": [
+                  "readiness-copy-1",
+                  "readiness-copy-2"
+                ]
+              },
+              "remainingStudyHours": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "lower": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "upper": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "BACKEND_ESTIMATE",
+                      "PRIOR_SESSION_ESTIMATE"
+                    ]
+                  }
+                },
+                "required": [
+                  "lower",
+                  "upper",
+                  "source"
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "assessedAt",
+              "wordingVersion"
+            ]
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sleepNeedMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sleepLatencyMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "minMainSleepOpportunityMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "deprecated": true,
+                "description": "Accepted for legacy compatibility; no sleep floor is enforced."
+              },
+              "commuteMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prepMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bufferMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usualBedtime": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usualWakeTime": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "provenance": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "habitualNights": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "basis": {
+                    "type": "string"
+                  },
+                  "sleepNeedBasis": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": []
+          },
+          "historyCoverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "startAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "endAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL",
+                  "NONE"
+                ]
+              },
+              "lastSyncedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "startAt",
+              "endAt",
+              "state"
+            ]
+          },
+          "sleepHistory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "ASLEEP_ESTIMATE",
+                    "OPPORTUNITY",
+                    "SESSION_SPAN",
+                    "UNKNOWN"
+                  ]
+                },
+                "asleepDurationMin": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sessionKind": {
+                  "type": "string",
+                  "enum": [
+                    "MAIN",
+                    "NAP",
+                    "UNKNOWN"
+                  ]
+                },
+                "deviceFamily": {
+                  "type": "string",
+                  "enum": [
+                    "APPLE_WATCH",
+                    "GALAXY_WATCH",
+                    "MANUAL",
+                    "UNKNOWN"
+                  ]
+                },
+                "stageCoverage": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "startAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "endAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "stage": {
+                        "type": "string",
+                        "enum": [
+                          "AWAKE",
+                          "LIGHT",
+                          "DEEP",
+                          "REM",
+                          "ASLEEP_UNSPECIFIED",
+                          "UNKNOWN"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "startAt",
+                      "endAt",
+                      "stage"
+                    ]
+                  },
+                  "maxItems": 10000
+                }
+              },
+              "required": [
+                "key",
+                "startAt",
+                "endAt",
+                "basis"
+              ]
+            },
+            "maxItems": 100
+          },
+          "fixedIntervals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "OBLIGATION",
+                    "PREPARATION_TRAVEL",
+                    "OTHER_EXAM",
+                    "MEAL",
+                    "REST"
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "startAt",
+                "endAt",
+                "kind"
+              ]
+            },
+            "maxItems": 500
+          },
+          "constraints": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "napPolicy": {
+                "type": "string",
+                "enum": [
+                  "DISABLED",
+                  "OPTIONAL_ONLY",
+                  "ALLOWED"
+                ]
+              },
+              "napWindows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "startAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "endAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "startAt",
+                    "endAt"
+                  ]
+                },
+                "maxItems": 30
+              },
+              "policyVersion": {
+                "type": "string",
+                "enum": [
+                  "minimal-balanced-1",
+                  "workload-balanced-2"
+                ]
+              },
+              "experimentalSplit": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "calendarState": {
+                "type": "string",
+                "enum": [
+                  "SYNCED",
+                  "PARTIAL",
+                  "UNKNOWN"
+                ]
+              }
+            },
+            "required": [
+              "napPolicy",
+              "policyVersion",
+              "calendarState"
+            ]
+          },
+          "optionalObservations": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "caffeineState": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL",
+                  "UNKNOWN"
+                ]
+              },
+              "caffeineEvents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "mg": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "mg"
+                  ]
+                },
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "caffeineState",
+              "caffeineEvents"
+            ]
+          },
+          "randomSeed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "required": [
+          "contractVersion",
+          "asOfAt",
+          "timezone",
+          "sourceRevision",
+          "populationScope",
+          "target",
+          "preparation",
+          "historyCoverage",
+          "sleepHistory",
+          "fixedIntervals",
+          "constraints"
+        ]
+      },
+      "BackendRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "type": "string",
+            "enum": [
+              "EXAM_SLEEP_BACKEND_V1"
+            ]
+          },
+          "asOfAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "populationScope": {
+            "type": "string",
+            "enum": [
+              "ADULT_VERIFIED",
+              "ADULT_UNVERIFIED"
+            ]
+          },
+          "selection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "preparationState": {
+                "type": "string",
+                "enum": [
+                  "STARTING",
+                  "STARTING_HEAVY",
+                  "SEEN_NOT_RECALLABLE",
+                  "PATCHING_GAPS",
+                  "FINAL_REVIEW"
+                ]
+              },
+              "examNature": {
+                "type": "string",
+                "enum": [
+                  "RECALL",
+                  "MIXED",
+                  "PROBLEM_SOLVING"
+                ]
+              },
+              "assessedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "wordingVersion": {
+                "type": "string",
+                "enum": [
+                  "readiness-copy-1",
+                  "readiness-copy-2"
+                ]
+              },
+              "remainingStudyHours": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "lower": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "upper": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "BACKEND_ESTIMATE",
+                      "PRIOR_SESSION_ESTIMATE"
+                    ]
+                  }
+                },
+                "required": [
+                  "lower",
+                  "upper",
+                  "source"
+                ]
+              }
+            },
+            "required": [
+              "preparationState",
+              "examNature",
+              "assessedAt"
+            ]
+          },
+          "targetEventId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "targetOccurrenceKey": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sleepNeedMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sleepLatencyMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "minSleepMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "deprecated": true,
+                "description": "Ignored by workload-balanced-2. Do not treat as a sleep constraint."
+              },
+              "commuteMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prepMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prepMinEstimate": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bufferMin": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usualBedtime": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usualWakeTime": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": []
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "eventId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "EXAM",
+                    "ASSIGNMENT",
+                    "PERSONAL",
+                    "OTHER",
+                    "CLASS"
+                  ]
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "allDay": {
+                  "type": "boolean"
+                },
+                "repeat": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "freq": {
+                      "type": "string",
+                      "enum": [
+                        "NONE",
+                        "DAILY",
+                        "WEEKLY"
+                      ]
+                    },
+                    "interval": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 52
+                    },
+                    "until": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "freq"
+                  ]
+                },
+                "occurrenceKey": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "eventId",
+                "type",
+                "startAt"
+              ]
+            },
+            "maxItems": 500
+          },
+          "eventExceptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "eventId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "occurrenceDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "cancelled": {
+                  "type": "boolean"
+                },
+                "startAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "endAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "eventId",
+                "occurrenceDate"
+              ]
+            },
+            "maxItems": 500
+          },
+          "timetableEntries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "entryId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "dayOfWeek": {
+                  "type": "string",
+                  "enum": [
+                    "MON",
+                    "TUE",
+                    "WED",
+                    "THU",
+                    "FRI",
+                    "SAT",
+                    "SUN"
+                  ]
+                },
+                "startTime": {
+                  "type": "string"
+                },
+                "endTime": {
+                  "type": "string"
+                },
+                "semesterStartDate": {
+                  "type": "string"
+                },
+                "semesterEndDate": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "entryId",
+                "dayOfWeek",
+                "startTime",
+                "endTime"
+              ]
+            },
+            "maxItems": 100
+          },
+          "sleepLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sleepLogId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "bedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "wakeAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "durationMin": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "durationBasis": {
+                  "type": "string",
+                  "enum": [
+                    "ASLEEP_ESTIMATE",
+                    "OPPORTUNITY",
+                    "SESSION_SPAN",
+                    "UNKNOWN"
+                  ]
+                },
+                "provider": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "externalId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "originApp": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sourceUpdatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "deletedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "deviceFamily": {
+                  "type": "string"
+                },
+                "sessionKind": {
+                  "type": "string"
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "startAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "endAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "stage": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "startAt",
+                      "endAt",
+                      "stage"
+                    ]
+                  },
+                  "maxItems": 10000
+                }
+              },
+              "required": [
+                "sleepLogId",
+                "bedAt",
+                "wakeAt"
+              ]
+            },
+            "maxItems": 200
+          },
+          "napLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "napLogId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "durationMin": {
+                  "type": "number"
+                },
+                "canonicalSleepLogId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "napLogId",
+                "startAt",
+                "endAt"
+              ]
+            },
+            "maxItems": 100
+          },
+          "historyCoverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "startAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "endAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL",
+                  "NONE"
+                ]
+              },
+              "lastSyncedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "startAt",
+              "endAt",
+              "state"
+            ]
+          },
+          "calendarState": {
+            "type": "string",
+            "enum": [
+              "SYNCED",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          },
+          "includeNaps": {
+            "type": "boolean"
+          },
+          "napWindows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "startAt",
+                "endAt"
+              ]
+            },
+            "maxItems": 30
+          },
+          "randomSeed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "contractVersion",
+          "asOfAt",
+          "sourceRevision",
+          "selection",
+          "events",
+          "sleepLogs",
+          "historyCoverage"
+        ]
+      },
+      "SpringSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asOfAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "selection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "preparationState": {
+                "type": "string",
+                "enum": [
+                  "STARTING",
+                  "STARTING_HEAVY",
+                  "SEEN_NOT_RECALLABLE",
+                  "PATCHING_GAPS",
+                  "FINAL_REVIEW"
+                ]
+              },
+              "examNature": {
+                "type": "string",
+                "enum": [
+                  "RECALL",
+                  "MIXED",
+                  "PROBLEM_SOLVING"
+                ]
+              },
+              "assessedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "wordingVersion": {
+                "type": "string",
+                "enum": [
+                  "readiness-copy-1",
+                  "readiness-copy-2"
+                ]
+              },
+              "remainingStudyHours": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "lower": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "upper": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 200
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "BACKEND_ESTIMATE",
+                      "PRIOR_SESSION_ESTIMATE"
+                    ]
+                  }
+                },
+                "required": [
+                  "lower",
+                  "upper",
+                  "source"
+                ]
+              }
+            },
+            "required": [
+              "preparationState",
+              "examNature",
+              "assessedAt"
+            ]
+          },
+          "historyCoverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "startAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "endAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "COMPLETE",
+                  "PARTIAL",
+                  "NONE"
+                ]
+              },
+              "lastSyncedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "startAt",
+              "endAt",
+              "state"
+            ]
+          },
+          "targetEventId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "targetOccurrenceKey": {
+            "type": "string"
+          },
+          "populationScope": {
+            "type": "string",
+            "enum": [
+              "ADULT_VERIFIED",
+              "ADULT_UNVERIFIED"
+            ]
+          },
+          "calendarState": {
+            "type": "string",
+            "enum": [
+              "SYNCED",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          },
+          "includeNaps": {
+            "type": "boolean"
+          },
+          "napWindows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "startAt",
+                "endAt"
+              ]
+            },
+            "maxItems": 30
+          },
+          "randomSeed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "contractVersion": {
+            "type": "string",
+            "enum": [
+              "SLEEPSYNC_EXAM_SNAPSHOT_V1"
+            ]
+          },
+          "userProfile": {
+            "type": "object",
+            "required": [
+              "settings"
+            ],
+            "properties": {
+              "settings": {
+                "type": "object"
+              }
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "eventId",
+                "type",
+                "startAt"
+              ]
+            },
+            "maxItems": 500
+          },
+          "timetableEntries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "entryId",
+                "dayOfWeek",
+                "startTime",
+                "endTime"
+              ]
+            },
+            "maxItems": 100
+          },
+          "semesters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "semester"
+              ]
+            },
+            "maxItems": 100
+          },
+          "sleepLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sleepLogId",
+                "bedAt",
+                "wakeAt"
+              ]
+            },
+            "maxItems": 200
+          },
+          "usualSleep": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "usualBedtime": {
+                "type": "string"
+              },
+              "usualWakeTime": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "usualBedtime",
+              "usualWakeTime"
+            ]
+          }
+        },
+        "required": [
+          "contractVersion",
+          "asOfAt",
+          "sourceRevision",
+          "selection",
+          "userProfile",
+          "events",
+          "timetableEntries",
+          "sleepLogs"
+        ]
+      }
+    }
+  }
+}
