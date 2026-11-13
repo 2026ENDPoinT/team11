@@ -27,7 +27,7 @@ class AppConfigControllerTest {
                 .andExpect(jsonPath("$.data.maintenance.active").value(false))
                 .andExpect(jsonPath("$.data.featureFlags.examMode").value(false))
                 .andExpect(jsonPath("$.data.featureFlags.eclassSync").value(false))
-                .andExpect(jsonPath("$.data.featureFlags.wearableSync").value(false))
+                .andExpect(jsonPath("$.data.featureFlags.wearableSync").value(true))
                 .andExpect(jsonPath("$.data.featureFlags.assistant").value(false))
                 .andExpect(jsonPath("$.data.featureFlags.tips").value(false));
     }

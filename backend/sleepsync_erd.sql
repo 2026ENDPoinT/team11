@@ -13,6 +13,7 @@
 --                   Plans (plans) — V5
 --                   Logs (sleep_logs, prep_logs) — V6
 --                   Devices / Notifications (devices, notifications) — V7
+--                   Logs 확장: 웨어러블(애플워치/갤럭시워치) 수면 단계 (sleep_stages) — V8
 -- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
 -- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
 -- 나머지 도메인(Exam, Stats, Tips, Sync)은 전부 2차(CLAUDE.md §10),
@@ -221,6 +222,22 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- V8__sleep_stages.sql ------------------------------------------------------
+-- SYNC-01: 애플워치(HealthKit)/갤럭시워치(Health Connect) 등에서 앱이 읽어 온 수면 데이터를
+-- POST /api/v1/sleep-logs/sync로 배치 동기화할 때, sleep_logs(source=WEARABLE) 한 건당
+-- 실제 수면 단계(각성/램/비램) 구간을 저장한다. Sync 도메인 자체는 CLAUDE.md §10에서 2차로
+-- 미뤄졌지만 이 엔드포인트만 먼저 구현됨(2026-11-13, 사용자 요청).
+
+CREATE TABLE sleep_stages (
+    id           BIGSERIAL PRIMARY KEY,
+    sleep_log_id BIGINT      NOT NULL REFERENCES sleep_logs(id) ON DELETE CASCADE,
+    stage        VARCHAR(10) NOT NULL,
+    start_at     TIMESTAMPTZ NOT NULL,
+    end_at       TIMESTAMPTZ NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_sleep_stages_time_range CHECK (end_at > start_at)
+);
+
 -- =====================================================================
 -- Part 2. 인덱스
 -- =====================================================================
@@ -230,5 +247,6 @@ CREATE INDEX ix_timetable_entries_user_semester ON timetable_entries(user_id, se
 CREATE INDEX ix_events_user_start ON events(user_id, start_at);
 CREATE INDEX ix_devices_user_active ON devices(user_id, active);
 CREATE INDEX ix_notifications_user_id_desc ON notifications(user_id, id DESC);
+CREATE INDEX ix_sleep_stages_sleep_log_id ON sleep_stages(sleep_log_id, start_at);
 CREATE UNIQUE INDEX uq_plans_active_per_date ON plans(user_id, target_date) WHERE status = 'ACTIVE';
 CREATE INDEX ix_sleep_logs_user_date ON sleep_logs(user_id, date);

@@ -24,7 +24,7 @@ public class AppConfigController {
         AppConfigResponse response = new AppConfigResponse(
                 OffsetDateTime.now(ASIA_SEOUL), version, version,
                 new Maintenance(false, null, null),
-                new FeatureFlags(false, false, false, false, false),
+                new FeatureFlags(false, false, true, false, false),
                 ABSOLUTE_MIN_SLEEP_MIN);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

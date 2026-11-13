@@ -8,6 +8,8 @@ import com.team11.backend.logs.dto.EndSleepLogResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse;
 import com.team11.backend.logs.dto.SleepLogView;
 import com.team11.backend.logs.dto.StartSleepLogRequest;
+import com.team11.backend.logs.dto.SyncWearableSleepLogsRequest;
+import com.team11.backend.logs.dto.SyncWearableSleepLogsResponse;
 import com.team11.backend.logs.dto.UpdateSleepLogRequest;
 import com.team11.backend.logs.service.SleepLogService;
 import jakarta.validation.Valid;
@@ -68,6 +70,13 @@ public class SleepLogController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) SleepLogStatus status) {
         return ResponseEntity.ok(ApiResponse.success(sleepLogService.list(userId, from, to, status)));
+    }
+
+    /** SYNC-01: 애플워치/갤럭시워치 등에서 앱이 읽어 온 수면 데이터를 배치로 올린다. */
+    @PostMapping("/sync")
+    public ResponseEntity<ApiResponse<SyncWearableSleepLogsResponse>> sync(@AuthenticationPrincipal Long userId,
+                                                                             @Valid @RequestBody SyncWearableSleepLogsRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(sleepLogService.syncFromWearable(userId, request)));
     }
 
     @GetMapping("/{sleepLogId}")
