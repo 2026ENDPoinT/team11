@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type StaticScreenProps } from '@react-navigation/native';
 import Timetable from '../../components/Timetable';
-import { Button, C, Field, Screen, Spacer, t } from '../../components/ui';
-import { deleteClass, fmtHM, parseHM, saveClass, useStore } from '../../store';
+import { Button, C, Field, Screen, Spacer, TimeWheel, t } from '../../components/ui';
+import { deleteClass, fmtHM, saveClass, useStore } from '../../store';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 
@@ -16,16 +16,13 @@ export default function ClassEditScreen({ route }: StaticScreenProps<{ id?: stri
   const [name, setName] = useState(editing?.name ?? '');
   const [room, setRoom] = useState(editing?.room ?? '');
   const [day, setDay] = useState(editing?.day ?? 0);
-  const [start, setStart] = useState(editing ? fmtHM(editing.start) : '09:00');
-  const [end, setEnd] = useState(editing ? fmtHM(editing.end) : '10:30');
-
-  const s = parseHM(start);
-  const e = parseHM(end);
-  const error =
-    s === null || e === null ? '시간은 09:00 형식으로 입력해 주세요.' : s >= e ? '종료 시간이 시작보다 늦어야 해요.' : '';
+  // 시간(분): 누르면 시:분 휠 (일정 추가와 같은 휠)
+  const [time, setTime] = useState({ start: editing?.start ?? 9 * 60, end: editing?.end ?? 10 * 60 + 30 });
+  const [picking, setPicking] = useState<'start' | 'end' | null>(null);
+  const error = time.start >= time.end ? '종료 시간이 시작보다 늦어야 해요.' : '';
 
   const save = () => {
-    saveClass({ id: editing?.id, name, room, day, start: s!, end: e! });
+    saveClass({ id: editing?.id, name, room, day, ...time });
     navigation.goBack();
   };
 
@@ -42,9 +39,26 @@ export default function ClassEditScreen({ route }: StaticScreenProps<{ id?: stri
         >
           <Text style={styles.boxText}>{DAYS[day]}</Text>
         </Pressable>
-        <TextInput style={[styles.box, styles.flex]} value={start} onChangeText={setStart} placeholder="09:00" placeholderTextColor={C.sub} />
-        <TextInput style={[styles.box, styles.flex]} value={end} onChangeText={setEnd} placeholder="10:30" placeholderTextColor={C.sub} />
+        {(['start', 'end'] as const).map(k => (
+          <Pressable
+            key={k}
+            style={[styles.box, styles.flex]}
+            onPress={() => setPicking(k)}
+            accessibilityRole="button"
+            accessibilityLabel={`${k === 'start' ? '시작' : '종료'} 시간 ${fmtHM(time[k])}`}
+            accessibilityHint="눌러서 시간 고르기"
+          >
+            <Text style={styles.boxText}>{fmtHM(time[k])}</Text>
+          </Pressable>
+        ))}
       </View>
+      <TimeWheel
+        visible={!!picking}
+        title={picking === 'end' ? '종료 시간' : '시작 시간'}
+        value={picking ? time[picking] : 0}
+        onChange={m => picking && setTime(x => ({ ...x, [picking]: m }))}
+        onClose={() => setPicking(null)}
+      />
       <Field placeholder="강의실" value={room} onChangeText={setRoom} />
       {/* 피그마 3-1에는 'e-class 연동하기'로 남아 있지만 eclass 화면이 없어져서 에브리타임으로 연결 */}
       <Pressable style={styles.link} onPress={() => navigation.navigate('TimetableImport', { back: true })}>

@@ -26,11 +26,11 @@ import HomeScreen from './screens/home/HomeScreen';
 import ScheduleScreen from './screens/schedule/ScheduleScreen';
 import ClassEditScreen from './screens/schedule/ClassEditScreen';
 import EventAddScreen from './screens/schedule/EventAddScreen';
-import EventDayScreen from './screens/schedule/EventDayScreen';
 import ReportScreen from './screens/report/ReportScreen';
 import SleepRecordScreen from './screens/report/SleepRecordScreen';
 import SettingsScreen from './screens/settings/SettingsScreen';
 import ProfileScreen from './screens/settings/ProfileScreen';
+import PasswordChangeScreen from './screens/settings/PasswordChangeScreen';
 import NotificationSettingsScreen from './screens/settings/NotificationSettingsScreen';
 import ConsentManageScreen from './screens/settings/ConsentManageScreen';
 
@@ -66,21 +66,12 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-// 일정 탭 안쪽 스택: 3-2-1 일정 확인은 피그마에서 탭 바가 보여서 탭 안에 둠
-const ScheduleStack = createNativeStackNavigator({
-  screenOptions: { headerShown: false },
-  screens: {
-    ScheduleHome: ScheduleScreen,
-    EventDay: EventDayScreen,
-  },
-});
-
 const MainTabs = createBottomTabNavigator({
   tabBar: props => <TabBar {...props} />,
   screenOptions: { headerShown: false },
   screens: {
     Home: HomeScreen,
-    Schedule: ScheduleStack,
+    Schedule: ScheduleScreen,
     Report: ReportScreen,
     Settings: SettingsScreen,
   },
@@ -107,6 +98,7 @@ const RootStack = createNativeStackNavigator({
     EventAdd: EventAddScreen,
     SleepRecord: SleepRecordScreen,
     Profile: ProfileScreen,
+    PasswordChange: PasswordChangeScreen,
     NotificationSettings: NotificationSettingsScreen,
     ConsentManage: ConsentManageScreen,
   },

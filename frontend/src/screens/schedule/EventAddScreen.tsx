@@ -1,29 +1,25 @@
 import { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type StaticScreenProps } from '@react-navigation/native';
 import Calendar from '../../components/Calendar';
-import { Button, C, Field, Pill, Screen, Spacer, t } from '../../components/ui';
-import { addEvent, parseHM, ymd, type EventType } from '../../store';
+import { Button, C, Field, Pill, Screen, Spacer, TimeWheel, t } from '../../components/ui';
+import { addEvent, fmtHM, ymd, type EventType } from '../../store';
 
 const TYPES: EventType[] = ['과제', '시험', '약속', '기타'];
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
-// 3-3 일정 추가 (160:640). 3-2-1 일정 확인에서 들어옴
+// 3-3 일정 추가 (160:640). 캘린더 탭(3-2-1)에서 들어옴
 export default function EventAddScreen({ route }: StaticScreenProps<{ date?: string }>) {
   const navigation = useNavigation();
   const [date, setDate] = useState(route.params?.date ?? ymd(new Date()));
   const [title, setTitle] = useState('');
   const [type, setType] = useState<EventType>('과제');
-  const [start, setStart] = useState('23:00');
-  const [end, setEnd] = useState('23:59');
-
-  const s = parseHM(start);
-  const e = parseHM(end);
-  const error = s === null || e === null ? '시간은 23:00 형식으로 입력해 주세요.' : '';
+  const [time, setTime] = useState({ start: 23 * 60, end: 23 * 60 + 59 }); // 분
+  const [picking, setPicking] = useState<'start' | 'end' | null>(null); // 휠 열린 칸
   const d = new Date(date + 'T00:00:00');
 
   const save = () => {
-    addEvent({ title, type, date, start: s!, end: e! });
+    addEvent({ title, type, date, ...time });
     navigation.goBack();
   };
 
@@ -46,12 +42,30 @@ export default function EventAddScreen({ route }: StaticScreenProps<{ date?: str
           </Text>
           <Image source={require('../../assets/images/calendar.png')} style={styles.calIcon} resizeMode="contain" />
         </View>
-        <TextInput style={[styles.input, styles.flex]} value={start} onChangeText={setStart} placeholder="23:00" placeholderTextColor={C.sub} />
-        <TextInput style={[styles.input, styles.flex]} value={end} onChangeText={setEnd} placeholder="23:59" placeholderTextColor={C.sub} />
+        {/* 시간은 직접 입력 대신 누르면 휠 */}
+        {(['start', 'end'] as const).map(k => (
+          <Pressable
+            key={k}
+            style={[styles.input, styles.flex]}
+            onPress={() => setPicking(k)}
+            accessibilityRole="button"
+            accessibilityLabel={`${k === 'start' ? '시작' : '종료'} 시간 ${fmtHM(time[k])}`}
+            accessibilityHint="눌러서 시간 고르기"
+          >
+            <Text style={styles.inputText}>{fmtHM(time[k])}</Text>
+          </Pressable>
+        ))}
       </View>
-      {!!error && <Text style={t.error}>{error}</Text>}
       <Spacer />
-      <Button title="저장" disabled={!title || !!error} onPress={save} />
+      <Button title="저장" disabled={!title} onPress={save} />
+
+      <TimeWheel
+        visible={!!picking}
+        title={picking === 'end' ? '종료 시간' : '시작 시간'}
+        value={picking ? time[picking] : 0}
+        onChange={m => picking && setTime(x => ({ ...x, [picking]: m }))}
+        onClose={() => setPicking(null)}
+      />
     </Screen>
   );
 }
@@ -77,7 +91,6 @@ const styles = StyleSheet.create({
     borderColor: C.line,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 14,
-    color: C.text,
   },
+  inputText: { fontSize: 14, color: C.text },
 });

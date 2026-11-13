@@ -27,7 +27,7 @@ export default function ProfileScreen() {
       </View>
       <Field label="이름" value={user.name} onChangeText={name => setUser({ ...user, name })} />
       <Field label="아이디" value={user.id} editable={false} />
-      <Button title="비밀번호 변경" style={styles.outline} onPress={soon} ghost />
+      <Button title="비밀번호 변경" style={styles.outline} onPress={() => navigation.navigate('PasswordChange')} ghost />
       <Spacer />
       <View style={styles.bottom}>
         <Pressable onPress={withdraw}>

@@ -1,5 +1,6 @@
 import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -226,7 +227,7 @@ export function Stepper({
   );
 }
 
-// iOS식 휠 피커: 위아래로 굴려서 가운데 줄 값을 고름. onPick이 있으면 숫자를 눌러서 확정
+// iOS식 휠 피커: 위아래로 굴리거나 숫자를 눌러서 가운데 줄 값을 고름. onPick은 숫자를 눌렀을 때 (확정하고 닫기 등)
 const WH = 36; // 한 줄 높이
 export function Wheel({
   values,
@@ -276,19 +277,51 @@ export function Wheel({
           <Text
             key={v}
             style={[s.wheelItem, v === value && s.wheelOn]}
-            onPress={
-              onPick &&
-              (() => {
-                onChange(v);
-                onPick(v);
-              })
-            }
+            onPress={() => {
+              go(values.indexOf(v)); // 누른 숫자를 가운데로 굴리고 값 바꿈
+              onPick?.(v);
+            }}
           >
             {fmt(v)}
           </Text>
         ))}
       </ScrollView>
     </View>
+  );
+}
+
+// 시 : 분 휠 팝업 (1분 단위, 3-3 일정 추가 · 3-2-2 일정 수정). 굴리거나 숫자를 눌러서 고르고,
+// 분을 누르면 확정되고 닫힘. 시는 눌러도 안 닫힘(이어서 분 고르기). 바깥을 눌러도 닫힘
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
+const pad2 = (n: number) => String(n).padStart(2, '0');
+export function TimeWheel({
+  visible,
+  title,
+  value,
+  onChange,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  value: number; // 분 (23:00 → 1380)
+  onChange: (m: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={s.popWrap}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />
+        <View style={s.pop}>
+          <Text style={s.popTitle}>{title}</Text>
+          <View style={s.wheels}>
+            <Wheel values={HOURS} value={Math.floor(value / 60)} onChange={h => onChange(h * 60 + (value % 60))} fmt={pad2} />
+            <Text style={s.colon}>:</Text>
+            <Wheel values={MINUTES} value={value % 60} onChange={m => onChange(Math.floor(value / 60) * 60 + m)} onPick={onClose} fmt={pad2} />
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -444,6 +477,12 @@ const s = StyleSheet.create({
   },
   wheelItem: { height: WH, lineHeight: WH, textAlign: 'center', fontSize: 15, color: C.sub },
   wheelOn: { fontWeight: '700', color: C.text },
+  // 홈 목표 수면 휠 모달과 같은 모양
+  popWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(31,33,48,0.38)' },
+  pop: { alignItems: 'center', gap: 8, padding: 20, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  popTitle: { fontSize: 16, lineHeight: 19, fontWeight: '700', color: '#2A2C3E' },
+  wheels: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  colon: { fontSize: 15, fontWeight: '700', color: C.text },
   box: { width: 20, height: 20, borderRadius: 5 },
   boxOn: { backgroundColor: C.dark },
   boxOff: { borderWidth: 1, borderColor: C.sub },
