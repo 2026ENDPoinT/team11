@@ -14,7 +14,7 @@
 --                   Logs (sleep_logs, prep_logs) — V6
 --                   Devices / Notifications (devices, notifications) — V7
 --                   Logs 확장: 웨어러블(애플워치/갤럭시워치) 수면 단계 (sleep_stages) — V8
---                   Exam (exam_periods, exam_period_exams) — V9
+--                   Exam (exam_periods, exam_period_exams) — V9 (컬럼 타입 수정 V11)
 --                   Plans 확장: 플랜 피드백(PLAN-06, plan_feedbacks) — V10
 -- Streak/Home(스트릭, 일별 결과, 홈 요약)은 기존 SleepLog/Plan 데이터를 그때그때 롤업해서
 -- 계산하며 별도 테이블이 없어 이 파일에 추가 항목 없음(CLAUDE.md §6/§10, home 패키지 참고).
@@ -243,6 +243,8 @@ CREATE TABLE sleep_stages (
 -- V9__exam_periods.sql --------------------------------------------------
 -- EXAM-02~06. 시험기간은 사용자가 직접 등록(EXAM-01 자동 감지는 2026-11-13 사용자 요청으로
 -- 안 만듦). 플랜 생성(EXAM-07)은 AI 서버 연동 전이라 아직 없어서 plans 테이블과는 연결 없음.
+-- daily_study_hours_max/difficulty/study_hours_needed는 처음엔 SMALLINT였는데 엔티티(int/
+-- Integer, Hibernate 기본 매핑은 INTEGER)와 안 맞아 운영 배포가 깨짐 — V11에서 INTEGER로 넓힘.
 
 CREATE TABLE exam_periods (
     id                     BIGSERIAL PRIMARY KEY,
@@ -250,7 +252,7 @@ CREATE TABLE exam_periods (
     name                   VARCHAR(30) NOT NULL,
     from_date              DATE        NOT NULL,
     to_date                DATE        NOT NULL,
-    daily_study_hours_max  SMALLINT,
+    daily_study_hours_max  INTEGER,
     min_sleep_min          INT         NOT NULL,
     include_naps           BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -264,8 +266,8 @@ CREATE TABLE exam_period_exams (
     id                  BIGSERIAL PRIMARY KEY,
     exam_period_id      BIGINT NOT NULL REFERENCES exam_periods(id) ON DELETE CASCADE,
     event_id            BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    difficulty          SMALLINT NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
-    study_hours_needed  SMALLINT NOT NULL CHECK (study_hours_needed BETWEEN 0 AND 100),
+    difficulty          INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
+    study_hours_needed  INTEGER NOT NULL CHECK (study_hours_needed BETWEEN 0 AND 100),
     CONSTRAINT uq_exam_period_exams UNIQUE (exam_period_id, event_id)
 );
 
