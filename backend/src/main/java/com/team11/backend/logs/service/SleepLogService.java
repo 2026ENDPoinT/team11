@@ -3,6 +3,8 @@ package com.team11.backend.logs.service;
 import com.team11.backend.common.ErrorCode;
 import com.team11.backend.common.exception.ApiException;
 import com.team11.backend.logs.domain.SleepLog;
+import com.team11.backend.logs.dto.SleepLogImportRequest;
+import com.team11.backend.logs.dto.SleepLogImportResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse;
 import com.team11.backend.logs.dto.SleepLogRequest;
 import com.team11.backend.logs.dto.SleepLogView;
@@ -10,6 +12,7 @@ import com.team11.backend.logs.repository.SleepLogRepository;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +61,25 @@ public class SleepLogService {
         requireDateFree(userId, SleepLog.dateFor(request.wakeAt()), null);
         SleepLog log = new SleepLog(userId, request.bedAt(), request.wakeAt(), request.quality(), trim(request.memo()));
         return SleepLogView.from(repository.save(log));
+    }
+
+    /** HealthKit 동기화: 기상일에 이미 기록이 있으면 건너뛴다(수동 입력 보호, 재전송해도 멱등). */
+    public SleepLogImportResponse importNights(Long userId, SleepLogImportRequest request) {
+        int imported = 0;
+        int skipped = 0;
+        List<Integer> invalid = new ArrayList<>();
+        for (int i = 0; i < request.nights().size(); i++) {
+            var n = request.nights().get(i);
+            if (!n.wakeAt().isAfter(n.bedAt()) || Duration.between(n.bedAt(), n.wakeAt()).compareTo(MAX_SLEEP_DURATION) > 0) {
+                invalid.add(i);
+            } else if (repository.findByUserIdAndDate(userId, SleepLog.dateFor(n.wakeAt())).isPresent()) {
+                skipped++;
+            } else {
+                repository.save(new SleepLog(userId, n.bedAt(), n.wakeAt(), null, null));
+                imported++;
+            }
+        }
+        return new SleepLogImportResponse(imported, skipped, invalid);
     }
 
     public SleepLogView update(Long userId, Long sleepLogId, SleepLogRequest request) {

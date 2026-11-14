@@ -83,4 +83,23 @@ class SleepLogControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SLEEP_LOG_NOT_FOUND"));
     }
+
+    @Test
+    void importNights_skipsExistingAndInvalid_isIdempotent() throws Exception {
+        String token = ApiTestSupport.onboardedUser(mockMvc, "sleeplogimp01");
+        String body = """
+                { "nights": [
+                  { "bedAt": "2026-10-05T23:30:00+09:00", "wakeAt": "2026-10-06T07:00:00+09:00" },
+                  { "bedAt": "2026-10-06T23:00:00+09:00", "wakeAt": "2026-10-07T06:30:00+09:00" },
+                  { "bedAt": "2026-10-08T07:00:00+09:00", "wakeAt": "2026-10-08T06:00:00+09:00" } ] }
+                """;
+        mockMvc.perform(post("/api/v1/sleep-logs/import").with(bearer(token)).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.imported").value(2))
+                .andExpect(jsonPath("$.data.skipped").value(0))
+                .andExpect(jsonPath("$.data.invalid[0]").value(2));
+        mockMvc.perform(post("/api/v1/sleep-logs/import").with(bearer(token)).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(jsonPath("$.data.imported").value(0))
+                .andExpect(jsonPath("$.data.skipped").value(2));
+    }
 }

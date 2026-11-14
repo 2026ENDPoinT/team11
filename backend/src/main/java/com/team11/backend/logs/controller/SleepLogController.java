@@ -1,6 +1,8 @@
 package com.team11.backend.logs.controller;
 
 import com.team11.backend.common.ApiResponse;
+import com.team11.backend.logs.dto.SleepLogImportRequest;
+import com.team11.backend.logs.dto.SleepLogImportResponse;
 import com.team11.backend.logs.dto.SleepLogListResponse;
 import com.team11.backend.logs.dto.SleepLogRequest;
 import com.team11.backend.logs.dto.SleepLogView;
@@ -42,6 +44,12 @@ public class SleepLogController {
     public ResponseEntity<ApiResponse<SleepLogView>> create(@AuthenticationPrincipal Long userId,
                                                              @Valid @RequestBody SleepLogRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(sleepLogService.create(userId, request)));
+    }
+
+    @PostMapping("/import")
+    public ApiResponse<SleepLogImportResponse> importFromHealthKit(@AuthenticationPrincipal Long userId,
+                                                                   @Valid @RequestBody SleepLogImportRequest request) {
+        return ApiResponse.success(sleepLogService.importNights(userId, request));
     }
 
     @GetMapping("/{sleepLogId}")
