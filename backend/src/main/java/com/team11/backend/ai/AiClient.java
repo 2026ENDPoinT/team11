@@ -18,6 +18,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 /** AI 서버(AI-02/03/06) 호출을 한 곳에 모은다. 개인 식별 정보는 어떤 요청에도 넣지 않는다. */
 @Component
@@ -29,12 +30,14 @@ public class AiClient {
     private static final String FOCUS_PATH = "/ai/v1/plan/focus-sleep";
 
     private final AiProperties properties;
+    private final ObjectMapper objectMapper;
     private final RestClient tonightClient;
     private final RestClient examClient;
     private final RestClient focusClient;
 
-    public AiClient(AiProperties properties, RestClient.Builder builder) {
+    public AiClient(AiProperties properties, RestClient.Builder builder, ObjectMapper objectMapper) {
         this.properties = properties;
+        this.objectMapper = objectMapper;
         this.tonightClient = build(builder, properties.timeout().tonightSeconds());
         this.examClient = build(builder, properties.timeout().examSeconds());
         this.focusClient = build(builder, properties.timeout().focusSeconds());
@@ -86,7 +89,7 @@ public class AiClient {
             return result;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_CONTENT) {
-                ErrorBody error = e.getResponseBodyAs(ErrorBody.class);
+                ErrorBody error = parseError(e.getResponseBodyAsByteArray());
                 String code = error != null && error.error() != null ? error.error().code() : "REJECTED";
                 String message = error != null && error.error() != null ? error.error().message() : e.getMessage();
                 throw new AiRejectedException(code, message);
@@ -101,8 +104,22 @@ public class AiClient {
         }
     }
 
+    /**
+     * AI 서버는 단일 Content-Length를 요구하고(chunked 거절, 400) 응답 Content-Type이 octet-stream으로 오는 경우가 있다.
+     * 그래서 본문은 직접 직렬화한 byte[]로 보내고(길이가 붙음), 응답도 바이트로 받아 직접 파싱한다.
+     */
     private <T> T post(RestClient client, String path, Object body, Class<T> type) {
-        return client.post().uri(path).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(type);
+        byte[] response = client.post().uri(path).contentType(MediaType.APPLICATION_JSON)
+                .body(objectMapper.writeValueAsBytes(body)).retrieve().body(byte[].class);
+        return response == null || response.length == 0 ? null : objectMapper.readValue(response, type);
+    }
+
+    private ErrorBody parseError(byte[] body) {
+        try {
+            return body == null || body.length == 0 ? null : objectMapper.readValue(body, ErrorBody.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     record ErrorBody(ErrorDetail error) {
