@@ -31,9 +31,9 @@ export default function TimetableImportScreen({ route }: { route?: { params?: { 
   };
 
   return (
-    <Screen title="시간표 가져오기" back={fromSettings} scroll>
+    <Screen title="시간표 가져오기" back={fromSettings}>
       <View style={st.guide}>
-        <Image source={require('../../assets/images/everytime_guide.png')} style={st.guideImg} resizeMode="contain" />
+        <Image source={require('../../assets/images/everytime_guide.gif')} style={st.guideImg} resizeMode="contain" />
       </View>
       <Text style={t.hint}>에브리타임 앱 → 시간표 → 공유(↗) → 링크 복사. 시간표가 '공개'여야 해요.</Text>
       <Field placeholder="에브리타임 시간표 링크" value={url} onChangeText={setUrl} keyboardType="url" autoCapitalize="none" />

@@ -82,7 +82,7 @@ export default function ClassEditScreen({ route }: Props) {
   const ok = !!name.trim() && start < end && !!tt.data;
 
   return (
-    <Screen title={entryId ? '수업 수정' : '수업 추가'} scroll>
+    <Screen title={entryId ? '수업 수정' : '수업 추가'}>
       {tt.error ? <Status error={tt.error} onRetry={tt.reload} /> : <Timetable entries={tt.data?.entries ?? []} editable onDelete={e => remove(e.entryId, e.courseName)} />}
       <Field placeholder="과목명" value={name} onChangeText={setName} maxLength={50} />
       <View style={st.row}>

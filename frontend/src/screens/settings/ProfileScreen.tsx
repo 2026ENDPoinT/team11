@@ -1,32 +1,34 @@
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary } from 'react-native-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AvatarIcon from '../../assets/icons/avatar.svg';
 import { ApiError } from '../../api/client';
 import * as api from '../../api/endpoints';
-import { Button, Field, Pill, Screen, Spacer, t } from '../../components/ui';
+import { Button, Field, Screen, Spacer, t } from '../../components/ui';
 import { useSession } from '../../session';
 import { C } from '../../theme';
 
-// 5-1 프로필(264:615). 이름은 포커스 아웃/저장 시 PUT /users/me. 사진 변경은 1차 제외(서버 저장소 없음).
+// 5-1 프로필(264:615). 이름·아이디는 읽기 전용 표시. 사진은 서버 저장소가 없어 기기에만 보관(AsyncStorage).
+export const AVATAR_KEY = 'sleepsync.avatarUri';
+
 export default function ProfileScreen() {
   const nav = useNavigation();
   const { me, setMe, logout } = useSession();
-  const [name, setName] = useState(me?.name ?? '');
   const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
-  const dirty = name.trim() !== (me?.name ?? '') && !!name.trim();
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
-  const saveName = async () => {
-    setBusy(true);
-    setMsg('');
-    try {
-      setMe(await api.updateName(name.trim()));
-    } catch (e) {
-      setMsg(e instanceof ApiError ? e.message : '저장에 실패했어요.');
-    } finally {
-      setBusy(false);
-    }
+  useEffect(() => {
+    AsyncStorage.getItem(AVATAR_KEY).then(setAvatarUri);
+  }, []);
+
+  const pickAvatar = async () => {
+    const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+    const uri = res.assets?.[0]?.uri;
+    if (!uri) return;
+    setAvatarUri(uri);
+    await AsyncStorage.setItem(AVATAR_KEY, uri);
   };
 
   const doLogout = async () => {
@@ -56,12 +58,12 @@ export default function ProfileScreen() {
   return (
     <Screen title="프로필">
       <View style={st.avatar}>
-        <AvatarIcon width={80} height={80} />
-        <Pill title="사진 변경" onPress={() => setMsg('사진 변경은 준비 중이에요.')} />
+        <Pressable onPress={pickAvatar} accessibilityRole="button" accessibilityLabel="프로필 사진 변경">
+          {avatarUri ? <Image source={{ uri: avatarUri }} style={st.avatarImg} /> : <AvatarIcon width={80} height={80} />}
+        </Pressable>
       </View>
-      <Field label="이름" value={name} onChangeText={setName} maxLength={30} autoCapitalize="words" />
+      <Field label="이름" value={me?.name ?? ''} editable={false} />
       <Field label="아이디" value={me?.loginId ?? ''} editable={false} />
-      {dirty && <Button title="이름 저장" loading={busy} onPress={saveName} />}
       <Button title="비밀번호 변경" kind="ghost" style={st.outline} onPress={() => nav.navigate('PasswordChange')} />
       {!!msg && <Text style={t.error}>{msg}</Text>}
       <Spacer />
@@ -76,6 +78,7 @@ export default function ProfileScreen() {
 
 const st = StyleSheet.create({
   avatar: { alignItems: 'center', gap: 8 },
+  avatarImg: { width: 80, height: 80, borderRadius: 40 },
   outline: { borderWidth: 1, borderColor: C.line },
   bottom: { flexDirection: 'row', justifyContent: 'center', gap: 75, paddingVertical: 8 },
   bottomText: { fontSize: 12, color: C.sub },

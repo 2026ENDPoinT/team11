@@ -76,7 +76,8 @@ const RootStack = createNativeStackNavigator({
     Login: LoginScreen,
     SignUp: SignUpScreen,
     Consent: ConsentScreen,
-    SleepProfile: SleepProfileScreen,
+    // 슬라이더가 화면 왼쪽 가장자리까지 닿아서 iOS 스와이프-뒤로가기 제스처와 충돌 — 이 화면만 꺼둔다.
+    SleepProfile: { screen: SleepProfileScreen, options: { gestureEnabled: false } },
     ExamProfile: ExamProfileScreen,
     NotificationPermission: NotificationPermissionScreen,
     TimetableImport: TimetableImportScreen,

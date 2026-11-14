@@ -30,7 +30,7 @@ export default function ScheduleScreen() {
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
   return (
-    <Screen scroll>
+    <Screen>
       <Segmented
         options={[
           { value: 'timetable', label: '시간표' },

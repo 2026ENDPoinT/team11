@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { requestNotifications } from 'react-native-permissions';
 import { ApiError } from '../../api/client';
 import * as api from '../../api/endpoints';
 import { useSession } from '../../session';
@@ -10,7 +11,8 @@ import { draft } from './onboarding';
 import { examDraft } from './SleepProfileScreen';
 
 // 0-5 온보딩 3 · 알림 허용(258:171). 여기서 온보딩 전체를 한 번에 제출.
-// ponytail: OS 푸시 권한 요청은 아직 없음(알림 발송 기능 자체가 서버에 없음). 서버 플래그만 저장.
+// 알림 발송 기능 자체는 서버에 없어 서버 플래그만 저장. 대신 OS 권한 팝업은 실제로 띄운다(react-native-permissions).
+// Settings 앱에 알림 섹션이 뜨려면 iOS가 이 요청을 한 번은 받아야 해서 Linking.openSettings()만으론 부족했다.
 export default function NotificationPermissionScreen() {
   const nav = useNavigation();
   const { setMe } = useSession();
@@ -18,6 +20,7 @@ export default function NotificationPermissionScreen() {
   const [msg, setMsg] = useState('');
 
   const finish = async (allowed: boolean) => {
+    if (allowed) requestNotifications(['alert', 'sound']).catch(() => {});
     setBusy(allowed ? 'allow' : 'later');
     setMsg('');
     try {
