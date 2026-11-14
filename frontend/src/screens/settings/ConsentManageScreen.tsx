@@ -20,16 +20,17 @@ export default function ConsentManageScreen() {
   };
 
   return (
-    <Screen title="약관 및 동의 관리" scroll>
+    <Screen title="약관 및 동의 관리">
       {c.error ? (
         <Status error={c.error} onRetry={c.reload} />
       ) : (
         c.data?.consents.map(x => {
           const item = CONSENT_ITEMS.find(i => i.type === x.type);
+          const label = (item?.label ?? x.type).replace(/^\[(필수|선택)\]\s*/, '');
           return (
             <Check
               key={x.type}
-              label={item?.label ?? x.type}
+              label={label}
               checked={x.agreed}
               onPress={() => (x.required ? setMsg('필수 동의는 철회할 수 없어요.') : toggle('NOTIFICATION', !x.agreed))}
             />

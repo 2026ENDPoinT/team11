@@ -88,5 +88,6 @@ const st = StyleSheet.create({
   wheelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sep: { fontSize: 15, fontWeight: '700', color: C.text },
   wheel: { width: 140, height: 180 },
-  item: { fontSize: 15, height: 180 },
+  // item height를 wheel height와 같게 두면 한 칸이 180px짜리가 돼 숫자가 보이는 영역 밖으로 밀려난다.
+  item: { fontSize: 15, height: 40, color: C.text },
 });

@@ -28,8 +28,11 @@ export function Slider({
   };
   const pan = useRef(
     PanResponder.create({
+      // capture까지 true로 둬야 ScrollView(Screen scroll) 안에서 드래그 중에 스크롤이 가져가지 않는다.
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: e => onChange(snap(e.nativeEvent.locationX)),
       onPanResponderMove: e => onChange(snap(e.nativeEvent.locationX)),
     }),
@@ -95,7 +98,9 @@ export function RangeSlider({
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: e => {
         const v = snap(e.nativeEvent.locationX);
         const { low: l, high: h } = vals.current;

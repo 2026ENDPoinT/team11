@@ -13,6 +13,8 @@ export const MOOD: Record<1 | 2 | 3, number> = {
   2: require('../../assets/images/mood_neutral.png'),
   1: require('../../assets/images/mood_sad.png'),
 };
+// 컨디션별 색: 1 나쁨(빨강) · 2 보통(주황) · 3 좋음(초록)
+export const MOOD_COLOR: Record<1 | 2 | 3, string> = { 1: '#C24A44', 2: '#C0711A', 3: '#23794A' };
 export const hm = (min: number) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`;
 const PLOT_H = 100;
 const MAX_MIN = 10 * 60;
@@ -33,12 +35,17 @@ export default function ReportScreen() {
       setDate(`${nm < 1 ? y - 1 : nm > 12 ? y + 1 : y}-${String(((nm + 11) % 12) + 1).padStart(2, '0')}-01`);
     }
   };
-  const label = period === 'WEEK' ? fmtDateKo(date) : `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월`;
+  const label =
+    period === 'WEEK' && r.data
+      ? `${fmtDateKo(r.data.from)} ~ ${fmtDateKo(r.data.to)}`
+      : period === 'WEEK'
+      ? fmtDateKo(date)
+      : `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월`;
   const daily = r.data?.daily ?? [];
   const logged = [...daily].filter(d => d.sleepLogId).reverse();
 
   return (
-    <Screen scroll>
+    <Screen>
       <Segmented options={[{ value: 'WEEK', label: '주간' }, { value: 'MONTH', label: '월간' }]} value={period} onChange={setPeriod} />
       <View style={st.range}>
         <Pill title="‹" kind="outline" onPress={() => shift(-1)} accessibilityLabel="이전" />
@@ -82,7 +89,7 @@ export default function ReportScreen() {
           {logged.map(d => (
             <Pressable key={d.date} style={st.row} onPress={() => nav.navigate('SleepRecord', { sleepLogId: d.sleepLogId!, date: d.date })} accessibilityRole="button">
               <Text style={st.rowDate}>{fmtDateKo(d.date)}</Text>
-              {d.quality && <Image source={MOOD[d.quality]} style={st.mood} />}
+              {d.quality && <Image source={MOOD[d.quality]} style={[st.mood, { tintColor: MOOD_COLOR[d.quality] }]} />}
               <Text style={st.rowDur}>| {hm(d.sleepMin ?? 0)}</Text>
               <Text style={st.chev}>›</Text>
             </Pressable>
@@ -123,7 +130,7 @@ const st = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '700', color: C.text },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
   rowDate: { flex: 1, fontSize: 15, color: C.text },
-  mood: { width: 24, height: 24, opacity: 0.6 },
+  mood: { width: 24, height: 24 },
   rowDur: { fontSize: 13, color: C.sub },
   chev: { fontSize: 16, color: C.sub },
   empty: { textAlign: 'center', fontSize: 13, color: C.sub, paddingVertical: 12 },

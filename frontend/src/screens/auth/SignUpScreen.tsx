@@ -7,7 +7,7 @@ import { useSession } from '../../session';
 import { Button, Field, Screen, Spacer, t } from '../../components/ui';
 
 // 0-2 회원가입(258:59). 가입 → 바로 로그인 → 온보딩(동의)으로.
-// 서버 규칙: loginId ^[a-z0-9]{4,20}$, password 8~64자 영문+숫자, name 1~30자
+// 서버 규칙: loginId ^[a-z0-9]{4,20}$, password 8~64자 영문+숫자+특수문자, name 1~30자
 export default function SignUpScreen() {
   const nav = useNavigation();
   const { setMe } = useSession();
@@ -20,11 +20,11 @@ export default function SignUpScreen() {
 
   const error =
     id && !/^[a-z0-9]{4,20}$/.test(id)
-      ? '아이디는 영문 소문자·숫자 4~20자예요.'
-      : pw && !(pw.length >= 8 && /[a-zA-Z]/.test(pw) && /\d/.test(pw))
-      ? '비밀번호는 8자 이상, 영문과 숫자를 포함해야 해요.'
+      ? '아이디는 영문 소문자, 숫자 조합 (4~12자) 입력해주세요.'
+      : pw && !(pw.length >= 8 && /[a-zA-Z]/.test(pw) && /\d/.test(pw) && /[^A-Za-z0-9]/.test(pw))
+      ? '비밀번호는 영문과 숫자, 특수문자를 포함하여 (8자 이상) 입력해주세요.'
       : pw2 && pw !== pw2
-      ? '비밀번호가 서로 달라요.'
+      ? '비밀번호가 일치하지 않습니다.'
       : '';
   const ok = !!(name.trim() && id && pw && pw2 && !error);
 
@@ -47,7 +47,7 @@ export default function SignUpScreen() {
     <Screen title="회원가입">
       <Field label="이름" placeholder="이름" value={name} onChangeText={setName} maxLength={30} autoCapitalize="words" />
       <Field label="아이디" placeholder="아이디(영문 소문자·숫자 4~20자)" value={id} onChangeText={v => setId(v.toLowerCase())} maxLength={20} />
-      <Field label="비밀번호" placeholder="비밀번호(8자 이상, 영문+숫자)" value={pw} onChangeText={setPw} secureTextEntry textContentType="newPassword" />
+      <Field label="비밀번호" placeholder="비밀번호(8자 이상, 영문+숫자+특수문자)" value={pw} onChangeText={setPw} secureTextEntry textContentType="newPassword" />
       <Field label="비밀번호 확인" placeholder="비밀번호 재입력" value={pw2} onChangeText={setPw2} secureTextEntry />
       {!!(error || serverMsg) && <Text style={t.error}>{error || serverMsg}</Text>}
       <Spacer />

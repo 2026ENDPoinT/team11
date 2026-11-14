@@ -107,7 +107,6 @@ export default function EventEditScreen({ route }: Props) {
   return (
     <Screen
       title={eventId ? '일정 수정' : '일정 추가'}
-      scroll
       right={eventId ? <Pressable onPress={remove} hitSlop={8} accessibilityRole="button"><Text style={st.delete}>삭제</Text></Pressable> : undefined}
     >
       <Calendar month={month} selected={date} events={others} onChangeMonth={setMonth} onSelect={pick} />

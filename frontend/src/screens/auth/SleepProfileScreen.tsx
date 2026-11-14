@@ -20,7 +20,7 @@ export default function SleepProfileScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen>
       <Text style={t.step}>2 / 3</Text>
       <Text style={t.h1}>나에게 맞는 수면 시간</Text>
       <Text style={t.hint}>하루 필요 수면 시간 - {fmtDuration(sleep)}</Text>
@@ -49,7 +49,7 @@ export function ExamProfileScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen>
       <Text style={t.step}>2 / 3</Text>
       <Text style={t.h1}>시험 기간</Text>
       <Stepper label="목표 최소 수면" value={minSleep} onChange={setMinSleep} step={30} min={4 * 60} max={8 * 60} fmt={fmtDuration} />

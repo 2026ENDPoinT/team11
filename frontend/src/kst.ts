@@ -55,6 +55,12 @@ export const kstIso = (ymd: string, min: number) => {
   return `${date}T${fmtHM(min)}:00+09:00`;
 };
 
+/** 절대 시각(Date, epoch 기준) → "+09:00" ISO. HealthKit 등 외부 절대 시각을 보낼 때만 쓴다 */
+export const kstIsoFromDate = (d: Date) => {
+  const k = new Date(d.getTime() + KST_OFFSET_MS);
+  return `${ymdFromDate(k, true)}T${p2(k.getUTCHours())}:${p2(k.getUTCMinutes())}:${p2(k.getUTCSeconds())}+09:00`;
+};
+
 /** "+09:00" ISO → { ymd, min }. 오프셋 파트는 무시하고 로컬 파트만 읽는다(서버가 항상 KST로 주므로) */
 export const parseIso = (iso: string) => {
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(iso);

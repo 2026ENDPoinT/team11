@@ -1,12 +1,22 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+# node로 react_native_pods.rb·react-native-permissions/scripts/setup.rb를 찾는다(hoisting 대응, 두 라이브러리 설치 문서 그대로).
+def node_require(script)
+  require Pod::Executable.execute_command('node', ['-p',
+    "require.resolve(
+      '#{script}',
+      {paths: [process.argv[1]]},
+    )", __dir__]).strip
+end
+
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
+
+# react-native-permissions: 쓰는 권한만 켜야 빌드에 포함된다(설치 문서).
+setup_permissions([
+  'Notifications',
+])
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

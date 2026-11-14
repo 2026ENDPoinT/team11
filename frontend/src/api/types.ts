@@ -103,6 +103,7 @@ export type SleepLog = {
   memo: string | null;
 };
 export type SleepLogReq = { bedAt: string; wakeAt: string; quality?: 1 | 2 | 3; memo?: string };
+export type SleepLogImportResult = { imported: number; skipped: number; invalid: number[] };
 
 // Reports
 export type Report = {

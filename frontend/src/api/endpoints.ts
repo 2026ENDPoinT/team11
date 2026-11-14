@@ -82,6 +82,8 @@ export const createSleepLog = (body: T.SleepLogReq) => request<T.SleepLog>('/sle
 export const updateSleepLog = (id: number, body: T.SleepLogReq) =>
   request<T.SleepLog>(`/sleep-logs/${id}`, { method: 'PUT', body });
 export const deleteSleepLog = (id: number) => request<void>(`/sleep-logs/${id}`, { method: 'DELETE' });
+export const importHealthKitSleep = (nights: { bedAt: string; wakeAt: string }[]) =>
+  request<T.SleepLogImportResult>('/sleep-logs/import', { method: 'POST', body: { nights } });
 
 // Reports
 export const getReport = (period: T.ReportPeriod, date?: string) =>

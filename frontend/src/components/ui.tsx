@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,32 +22,31 @@ import { C, S } from '../theme';
 // Figma '컴포넌트 (앱 ui.tsx 기준)' 섹션(257:302) 1:1 대응.
 
 /** 화면 틀: SafeArea + body padding 16 / gap 12. title을 주면 header(257:402) 포함 */
+// 예전엔 scroll prop으로 View/ScrollView를 갈랐다. non-scroll View였을 때 키보드가 패딩으로 공간을 줄이면
+// flex:1이 아닌 자식(Field·Button)은 줄어들지 않고 그대로 키보드 아래로 밀려 가려졌다(실측).
+// ScrollView는 내용이 넘치면 스크롤되고, 안 넘치면 st.body의 flex:1이 기존 View와 똑같이 채워서 이제 항상 ScrollView를 쓴다.
 export function Screen({
   title,
   back = true,
-  scroll,
   children,
   right,
   style,
 }: {
   title?: string;
   back?: boolean;
-  scroll?: boolean;
   children: ReactNode;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const Body = scroll ? ScrollView : View;
   return (
     <SafeAreaView style={st.safe} edges={['top']}>
       {title !== undefined && <Header title={title} back={back} right={right} />}
-      <Body
-        style={[st.body, style]}
-        contentContainerStyle={scroll ? [st.body, style] : undefined}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </Body>
+      {/* Android는 adjustResize(AndroidManifest)가 처리. iOS만 패딩 필요 — 안 그러면 하단 입력창·버튼이 키보드에 가려짐. */}
+      <KeyboardAvoidingView style={st.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={st.flex} contentContainerStyle={[st.body, style]} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -240,6 +241,7 @@ export const t = StyleSheet.create({
 
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  flex: { flex: 1 },
   body: { flex: 1, padding: S.pad, gap: S.gap, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: S.pad, paddingVertical: 10 },
   backBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: S.pill },
