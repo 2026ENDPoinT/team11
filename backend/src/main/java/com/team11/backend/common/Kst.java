@@ -15,8 +15,9 @@ public final class Kst {
     private Kst() {
     }
 
+    /** 초 단위로 자른다 — AI 서버가 소수점 초가 붙은 시각을 RFC3339로 인정하지 않고 400으로 거절한다(실측). */
     public static OffsetDateTime now() {
-        return OffsetDateTime.now(ZONE);
+        return OffsetDateTime.now(ZONE).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     }
 
     public static LocalDate today() {
